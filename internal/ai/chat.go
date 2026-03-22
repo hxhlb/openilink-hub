@@ -80,12 +80,7 @@ func Complete(ctx context.Context, cfg database.AIConfig, db *database.DB, botID
 	messages = append(messages, chatMessage{Role: "user", Content: text})
 
 	// Call API
-	endpoint := strings.TrimRight(baseURL, "/")
-	// Auto-append /v1 if base URL doesn't end with it
-	if !strings.HasSuffix(endpoint, "/v1") {
-		endpoint += "/v1"
-	}
-	endpoint += "/chat/completions"
+	endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
 
 	reqBody, _ := json.Marshal(chatRequest{Model: model, Messages: messages})
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))

@@ -372,14 +372,25 @@ function AIConfigPanel({ channelId, config, onSaved }: { channelId: string; conf
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  function normalizeBaseUrl(url: string): string {
+    if (!url) return "";
+    let u = url.replace(/\/+$/, "");
+    if (u && !u.endsWith("/v1")) {
+      u += "/v1";
+    }
+    return u;
+  }
+
   async function handleSave() {
     setSaving(true);
     setError("");
     try {
+      const normalized = normalizeBaseUrl(baseUrl);
+      setBaseUrl(normalized);
       await api.updateChannel(channelId, {
         ai_config: {
           enabled,
-          base_url: baseUrl,
+          base_url: normalized,
           api_key: apiKey,
           model: model || "gpt-4o-mini",
           system_prompt: systemPrompt,
@@ -414,9 +425,10 @@ function AIConfigPanel({ channelId, config, onSaved }: { channelId: string; conf
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <Input
-              placeholder="API Base URL（留空用 OpenAI 默认）"
+              placeholder="https://api.openai.com/v1"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
+              onBlur={() => setBaseUrl(normalizeBaseUrl(baseUrl))}
               className="h-7 text-[11px] font-mono col-span-2"
             />
             <Input
