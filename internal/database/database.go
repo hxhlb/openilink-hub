@@ -26,9 +26,16 @@ func Open(dsn string) (*DB, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	if _, err := db.Exec(schema); err != nil {
+	// Use advisory lock to prevent concurrent migration conflicts
+	if _, err := db.Exec("SELECT pg_advisory_lock(1)"); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("run migrations: %w", err)
+		return nil, fmt.Errorf("advisory lock: %w", err)
+	}
+	_, migErr := db.Exec(schema)
+	db.Exec("SELECT pg_advisory_unlock(1)")
+	if migErr != nil {
+		db.Close()
+		return nil, fmt.Errorf("run migrations: %w", migErr)
 	}
 
 	return &DB{db}, nil
