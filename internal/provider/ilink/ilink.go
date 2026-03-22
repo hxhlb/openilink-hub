@@ -232,7 +232,7 @@ func (p *Provider) sendVoice(ctx context.Context, recipient, contextToken string
 	}
 
 	// Encode PCM → SILK
-	silkData, err := silk.Encode(bytes.NewReader(pcm), silk.SampleRate(24000))
+	silkData, err := silk.Encode(bytes.NewReader(pcm), silk.SampleRate(24000), silk.Stx(true))
 	if err != nil {
 		return "", fmt.Errorf("silk encode: %w", err)
 	}
@@ -259,7 +259,7 @@ func (p *Provider) sendVoice(ctx context.Context, recipient, contextToken string
 						EncryptQueryParam: uploaded.DownloadEncryptedQueryParam,
 						AESKey:            base64.StdEncoding.EncodeToString([]byte(uploaded.AESKey)),
 					},
-					EncodeType: 6, // SILK
+					EncodeType: 4, // SILK with STX
 					SampleRate: 24000,
 				},
 			}},
