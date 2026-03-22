@@ -87,6 +87,8 @@ export function BotDetailPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   async function loadBot() {
@@ -115,21 +117,66 @@ export function BotDetailPage() {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
+    if (pendingFile) {
+      await confirmFileSend();
+      return;
+    }
     if (!input.trim() || !id) return;
-    await doSend({ text: input });
+    // Optimistic: show in chat immediately
+    const optimistic: Message = {
+      id: -Date.now(), direction: "outbound", sender: "", recipient: "",
+      msg_type: "text", payload: { content: input }, created_at: Date.now() / 1000,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    const text = input;
     setInput("");
+    await doSend({ text });
   }
 
-  async function handleFileSend(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !id) return;
+    if (!file) return;
     e.target.value = "";
+    setPendingFile(file);
+    if (file.type.startsWith("image/")) {
+      setPendingPreview(URL.createObjectURL(file));
+    } else {
+      setPendingPreview(null);
+    }
+  }
+
+  function cancelFile() {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(null);
+    setPendingPreview(null);
+  }
+
+  async function confirmFileSend() {
+    if (!pendingFile || !id) return;
+    const file = pendingFile;
+    const preview = pendingPreview;
+    const caption = input.trim();
+
+    // Optimistic: show in chat immediately
+    const optimistic: Message = {
+      id: -Date.now(), direction: "outbound", sender: "", recipient: "",
+      msg_type: file.type.startsWith("image/") ? "image" : "file",
+      payload: {
+        content: caption || file.name,
+        media_url: preview || undefined,
+        media_type: file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "file",
+        media_status: "ready",
+      },
+      created_at: Date.now() / 1000,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+
     const form = new FormData();
     form.append("file", file);
-    if (input.trim()) {
-      form.append("text", input);
-      setInput("");
-    }
+    if (caption) form.append("text", caption);
+    setInput("");
+    setPendingFile(null);
+    setPendingPreview(null);
     await doSend(form);
   }
 
@@ -216,18 +263,35 @@ export function BotDetailPage() {
               {sendError}
             </div>
           )}
+          {pendingFile && (
+            <div className="px-4 py-2 border-t bg-secondary/50 flex items-center gap-3">
+              {pendingPreview ? (
+                <img src={pendingPreview} alt="preview" className="h-16 rounded" />
+              ) : (
+                <div className="h-16 w-16 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                  {pendingFile.name.split('.').pop()?.toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs truncate">{pendingFile.name}</p>
+                <p className="text-[10px] text-muted-foreground">{(pendingFile.size / 1024).toFixed(1)} KB</p>
+              </div>
+              <Button size="sm" className="h-7" onClick={confirmFileSend} disabled={sending}>发送</Button>
+              <Button size="sm" variant="ghost" className="h-7" onClick={cancelFile}>取消</Button>
+            </div>
+          )}
           <form onSubmit={handleSend} className="flex gap-2 p-3 border-t shrink-0">
             <label className="cursor-pointer text-muted-foreground hover:text-foreground flex items-center">
               <Paperclip className="w-4 h-4" />
-              <input type="file" className="hidden" onChange={handleFileSend} disabled={sending} />
+              <input type="file" className="hidden" onChange={handleFileSelect} disabled={sending} />
             </label>
             <Input
               value={input}
               onChange={(e) => { setInput(e.target.value); setSendError(""); }}
-              placeholder="输入消息..."
+              placeholder={pendingFile ? "添加说明（可选）..." : "输入消息..."}
               className="h-9 text-sm flex-1"
             />
-            <Button type="submit" size="sm" disabled={sending || !input.trim()}>
+            <Button type="submit" size="sm" disabled={sending || (!input.trim() && !pendingFile)}>
               <Send className="w-4 h-4" />
             </Button>
           </form>
