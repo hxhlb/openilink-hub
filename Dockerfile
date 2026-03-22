@@ -8,13 +8,13 @@ RUN npm run build
 
 # --- Build backend ---
 FROM golang:1.23-alpine AS backend
-RUN apk add --no-cache git
+RUN apk add --no-cache git gcc musl-dev
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /app/internal/web/dist ./internal/web/dist
-RUN CGO_ENABLED=0 go build -o /openilink-hub .
+RUN CGO_ENABLED=1 go build -o /openilink-hub .
 
 # --- Runtime ---
 FROM alpine:3.20
