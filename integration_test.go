@@ -1451,7 +1451,7 @@ func TestChannelHTTPDisabledChannel(t *testing.T) {
 	botObj := env.createBotForUser("Bot1")
 	ch, _ := env.db.CreateChannel(botObj.ID, "DisChan", "", nil, nil)
 
-	env.db.UpdateChannel(ch.ID, ch.Name, ch.Handle, &ch.FilterRule, &ch.AIConfig, ch.WebhookURL, ch.WebhookSecret, false)
+	env.db.UpdateChannel(ch.ID, ch.Name, ch.Handle, &ch.FilterRule, &ch.AIConfig, &ch.WebhookConfig, false)
 
 	resp := httpGet(t, env.srv.URL+"/api/v1/channels/status?key="+ch.APIKey)
 	assertCode(t, "disabled channel", resp.StatusCode, 401)
@@ -1483,7 +1483,7 @@ func TestWebhookDelivery(t *testing.T) {
 	// Create channel with webhook
 	ch, _ := env.db.CreateChannel(botObj.ID, "HookChan", "", nil, nil)
 	env.db.UpdateChannel(ch.ID, ch.Name, ch.Handle, &ch.FilterRule, &ch.AIConfig,
-		hookSrv.URL, "bearer:test-token", true)
+		&database.WebhookConfig{URL: hookSrv.URL, Auth: "bearer:test-token"}, true)
 
 	inst, _ := env.mgr.GetInstance(botObj.ID)
 	mock := inst.Provider.(*mockProvider.Provider)
@@ -1538,7 +1538,7 @@ func TestWebhookHMACSignature(t *testing.T) {
 
 	ch, _ := env.db.CreateChannel(botObj.ID, "HmacChan", "", nil, nil)
 	env.db.UpdateChannel(ch.ID, ch.Name, ch.Handle, &ch.FilterRule, &ch.AIConfig,
-		hookSrv.URL, "hmac:my-secret", true)
+		&database.WebhookConfig{URL: hookSrv.URL, Auth: "hmac:my-secret"}, true)
 
 	inst, _ := env.mgr.GetInstance(botObj.ID)
 	mock := inst.Provider.(*mockProvider.Provider)
@@ -1555,6 +1555,107 @@ func TestWebhookHMACSignature(t *testing.T) {
 	}
 	if len(signature) != 7+64 { // "sha256=" + 64 hex chars
 		t.Errorf("signature length = %d", len(signature))
+	}
+}
+
+func TestWebhookWithScript(t *testing.T) {
+	env := setup(t)
+	defer env.close()
+
+	var receivedBody string
+	var receivedHeaders http.Header
+	hookSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaders = r.Header
+		b := new(bytes.Buffer)
+		b.ReadFrom(r.Body)
+		receivedBody = b.String()
+		w.WriteHeader(200)
+	}))
+	defer hookSrv.Close()
+
+	env.register("scriptuser", "password123")
+	botObj := env.createBotForUser("Bot1")
+	env.mgr.StartBot(context.Background(), botObj)
+
+	ch, _ := env.db.CreateChannel(botObj.ID, "ScriptChan", "", nil, nil)
+
+	// Script transforms payload to Slack-like format
+	script := `({
+		headers: {"X-Custom": "hello"},
+		body: JSON.stringify({text: msg.sender + ": " + msg.content})
+	})`
+
+	env.db.UpdateChannel(ch.ID, ch.Name, ch.Handle, &ch.FilterRule, &ch.AIConfig,
+		&database.WebhookConfig{URL: hookSrv.URL, Script: script}, true)
+
+	inst, _ := env.mgr.GetInstance(botObj.ID)
+	mock := inst.Provider.(*mockProvider.Provider)
+
+	mock.SimulateInbound(provider.InboundMessage{
+		ExternalID: "800", Sender: "alice@wx", Timestamp: time.Now().UnixMilli(),
+		Items: []provider.MessageItem{{Type: "text", Text: "script test"}},
+	})
+
+	time.Sleep(500 * time.Millisecond)
+
+	if receivedBody == "" {
+		t.Fatal("no webhook received")
+	}
+
+	var body map[string]any
+	json.Unmarshal([]byte(receivedBody), &body)
+	if body["text"] != "alice@wx: script test" {
+		t.Errorf("body = %v", body)
+	}
+	if receivedHeaders.Get("X-Custom") != "hello" {
+		t.Errorf("X-Custom = %q", receivedHeaders.Get("X-Custom"))
+	}
+}
+
+func TestWebhookScriptSkip(t *testing.T) {
+	env := setup(t)
+	defer env.close()
+
+	received := false
+	hookSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received = true
+		w.WriteHeader(200)
+	}))
+	defer hookSrv.Close()
+
+	env.register("skipuser", "password123")
+	botObj := env.createBotForUser("Bot1")
+	env.mgr.StartBot(context.Background(), botObj)
+
+	ch, _ := env.db.CreateChannel(botObj.ID, "SkipChan", "", nil, nil)
+
+	// Script returns null for non-text messages
+	script := `if (msg.msg_type !== "text") null; else ({body: JSON.stringify({t: msg.content})})`
+	env.db.UpdateChannel(ch.ID, ch.Name, ch.Handle, &ch.FilterRule, &ch.AIConfig,
+		&database.WebhookConfig{URL: hookSrv.URL, Script: script}, true)
+
+	inst, _ := env.mgr.GetInstance(botObj.ID)
+	mock := inst.Provider.(*mockProvider.Provider)
+
+	// Text message → should deliver
+	mock.SimulateInbound(provider.InboundMessage{
+		ExternalID: "900", Sender: "u@wx", Timestamp: time.Now().UnixMilli(),
+		Items: []provider.MessageItem{{Type: "text", Text: "hello"}},
+	})
+	time.Sleep(300 * time.Millisecond)
+	if !received {
+		t.Error("text message should trigger webhook")
+	}
+
+	// Image message → script returns null, should skip
+	received = false
+	mock.SimulateInbound(provider.InboundMessage{
+		ExternalID: "901", Sender: "u@wx", Timestamp: time.Now().UnixMilli(),
+		Items: []provider.MessageItem{{Type: "image"}},
+	})
+	time.Sleep(300 * time.Millisecond)
+	if received {
+		t.Error("image message should be skipped by script")
 	}
 }
 

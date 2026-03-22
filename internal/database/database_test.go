@@ -138,7 +138,7 @@ func TestChannelWithFilter(t *testing.T) {
 	}
 
 	newFilter := &FilterRule{MessageTypes: []string{"text", "image"}}
-	db.UpdateChannel(ch.ID, "Updated", "newhandle", newFilter, nil, "", "", true)
+	db.UpdateChannel(ch.ID, "Updated", "newhandle", newFilter, nil, nil, true)
 	got, _ = db.GetChannel(ch.ID)
 	if got.Name != "Updated" || got.Handle != "newhandle" || len(got.FilterRule.MessageTypes) != 2 {
 		t.Errorf("after update = %+v", got)

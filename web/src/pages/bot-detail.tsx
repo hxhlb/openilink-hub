@@ -367,7 +367,7 @@ function ChannelRow({ botId, channel, onRefresh }: { botId: string; channel: any
               <Bot className="w-2.5 h-2.5" /> AI
             </span>
           )}
-          {channel.webhook_url && (
+          {channel.webhook_config?.url && (
             <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
               <Webhook className="w-2.5 h-2.5" /> Webhook
             </span>
@@ -397,7 +397,7 @@ function ChannelRow({ botId, channel, onRefresh }: { botId: string; channel: any
       <CopyRow label="HTTP API" value={httpBase} copied={copiedHttp} onCopy={copyHttp} />
 
       {showAI && <AIConfigPanel botId={botId} channelId={channel.id} config={channel.ai_config} onSaved={onRefresh} />}
-      {showWebhook && <WebhookPanel botId={botId} channelId={channel.id} url={channel.webhook_url} secret={channel.webhook_secret} onSaved={onRefresh} />}
+      {showWebhook && <WebhookPanel botId={botId} channelId={channel.id} config={channel.webhook_config} onSaved={onRefresh} />}
       {showLive && <LivePanel wsUrl={wsUrl} onClose={() => setShowLive(false)} />}
     </div>
   );
@@ -523,11 +523,12 @@ type WsLogEntry = {
   time: string;
 };
 
-function WebhookPanel({ botId, channelId, url, secret, onSaved }: {
-  botId: string; channelId: string; url: string; secret: string; onSaved: () => void;
+function WebhookPanel({ botId, channelId, config, onSaved }: {
+  botId: string; channelId: string; config: any; onSaved: () => void;
 }) {
-  const [webhookUrl, setWebhookUrl] = useState(url || "");
-  const [webhookSecret, setWebhookSecret] = useState(secret || "");
+  const [url, setUrl] = useState(config?.url || "");
+  const [auth, setAuth] = useState(config?.auth || "");
+  const [script, setScript] = useState(config?.script || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -536,8 +537,7 @@ function WebhookPanel({ botId, channelId, url, secret, onSaved }: {
     setError("");
     try {
       await api.updateChannel(botId, channelId, {
-        webhook_url: webhookUrl,
-        webhook_secret: webhookSecret,
+        webhook_config: { url, auth, script },
       });
       onSaved();
     } catch (err: any) { setError(err.message); }
@@ -550,28 +550,21 @@ function WebhookPanel({ botId, channelId, url, secret, onSaved }: {
         <Webhook className="w-3.5 h-3.5" /> Webhook 推送
       </span>
       <div className="space-y-2">
-        <Input
-          placeholder="https://your-server.com/webhook"
-          value={webhookUrl}
-          onChange={(e) => setWebhookUrl(e.target.value)}
-          className="h-7 text-[11px] font-mono"
-        />
-        <Input
-          placeholder="认证（可选）bearer:token / header:Key:Value / hmac:secret"
-          value={webhookSecret}
-          onChange={(e) => setWebhookSecret(e.target.value)}
-          className="h-7 text-[11px] font-mono"
+        <Input placeholder="https://your-server.com/webhook" value={url} onChange={(e) => setUrl(e.target.value)} className="h-7 text-[11px] font-mono" />
+        <Input placeholder="认证: bearer:token / header:K:V / hmac:secret" value={auth} onChange={(e) => setAuth(e.target.value)} className="h-7 text-[11px] font-mono" />
+        <textarea
+          placeholder={`JS 脚本（可选）转换 payload，示例：\n// Slack\n({body: JSON.stringify({text: msg.sender + ": " + msg.content})})\n// 跳过非文本\nif (msg.msg_type !== "text") null; else ({body: JSON.stringify(msg)})`}
+          value={script}
+          onChange={(e) => setScript(e.target.value)}
+          rows={4}
+          className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-[11px] font-mono placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring resize-none"
         />
       </div>
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-muted-foreground">
-          收到消息时 POST JSON 到此 URL。留空关闭。
-        </p>
+        <p className="text-[10px] text-muted-foreground">收到消息时 POST 到此 URL。留空 URL 关闭。</p>
         <div className="flex items-center gap-2">
           {error && <span className="text-[10px] text-destructive">{error}</span>}
-          <Button size="sm" className="h-7" onClick={handleSave} disabled={saving}>
-            {saving ? "..." : "保存"}
-          </Button>
+          <Button size="sm" className="h-7" onClick={handleSave} disabled={saving}>{saving ? "..." : "保存"}</Button>
         </div>
       </div>
     </div>

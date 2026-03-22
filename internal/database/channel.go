@@ -26,14 +26,20 @@ type AIConfig struct {
 	MaxHistory   int    `json:"max_history,omitempty"`    // context messages, default: 20
 }
 
+// WebhookConfig holds webhook push configuration for a channel.
+type WebhookConfig struct {
+	URL    string `json:"url,omitempty"`
+	Auth   string `json:"auth,omitempty"`   // "bearer:<token>", "header:K:V", "hmac:<secret>"
+	Script string `json:"script,omitempty"` // JS script to transform payload
+}
+
 type Channel struct {
 	ID            string     `json:"id"`
 	BotID         string     `json:"bot_id"`
 	Name          string     `json:"name"`
 	Handle        string     `json:"handle"`
 	AIConfig      AIConfig   `json:"ai_config"`
-	WebhookURL    string     `json:"webhook_url,omitempty"`
-	WebhookSecret string     `json:"webhook_secret,omitempty"`
+	WebhookConfig WebhookConfig `json:"webhook_config"`
 	APIKey        string     `json:"api_key"`
 	FilterRule    FilterRule `json:"filter_rule"`
 	Enabled    bool       `json:"enabled"`
@@ -48,21 +54,21 @@ func generateAPIKey() string {
 	return hex.EncodeToString(b)
 }
 
-const channelSelectCols = `id, bot_id, name, handle, ai_config, webhook_url, webhook_secret,
+const channelSelectCols = `id, bot_id, name, handle, ai_config, webhook_config,
 	api_key, filter_rule, enabled, last_seq,
 	EXTRACT(EPOCH FROM created_at)::BIGINT, EXTRACT(EPOCH FROM updated_at)::BIGINT`
 
 func scanChannel(scanner interface{ Scan(...any) error }) (*Channel, error) {
 	c := &Channel{}
-	var filterJSON, aiJSON []byte
-	err := scanner.Scan(&c.ID, &c.BotID, &c.Name, &c.Handle, &aiJSON,
-		&c.WebhookURL, &c.WebhookSecret,
+	var filterJSON, aiJSON, webhookJSON []byte
+	err := scanner.Scan(&c.ID, &c.BotID, &c.Name, &c.Handle, &aiJSON, &webhookJSON,
 		&c.APIKey, &filterJSON, &c.Enabled, &c.LastSeq, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal(filterJSON, &c.FilterRule)
 	_ = json.Unmarshal(aiJSON, &c.AIConfig)
+	_ = json.Unmarshal(webhookJSON, &c.WebhookConfig)
 	return c, nil
 }
 
@@ -145,13 +151,14 @@ func (db *DB) ListChannelsByBotIDs(botIDs []string) ([]Channel, error) {
 	return chs, rows.Err()
 }
 
-func (db *DB) UpdateChannel(id, name, handle string, filter *FilterRule, ai *AIConfig, webhookURL, webhookSecret string, enabled bool) error {
+func (db *DB) UpdateChannel(id, name, handle string, filter *FilterRule, ai *AIConfig, webhook *WebhookConfig, enabled bool) error {
 	filterJSON, _ := json.Marshal(filter)
 	aiJSON, _ := json.Marshal(ai)
+	webhookJSON, _ := json.Marshal(webhook)
 	_, err := db.Exec(
 		`UPDATE channels SET name = $1, handle = $2, filter_rule = $3, ai_config = $4,
-		 webhook_url = $5, webhook_secret = $6, enabled = $7, updated_at = NOW() WHERE id = $8`,
-		name, handle, filterJSON, aiJSON, webhookURL, webhookSecret, enabled, id,
+		 webhook_config = $5, enabled = $6, updated_at = NOW() WHERE id = $7`,
+		name, handle, filterJSON, aiJSON, webhookJSON, enabled, id,
 	)
 	return err
 }
