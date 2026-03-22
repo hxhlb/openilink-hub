@@ -9,11 +9,12 @@ import { api } from "../lib/api";
 type Message = { id: number; bot_id?: string; direction: string; sender: string; recipient: string; msg_type: string; payload: any; created_at: number };
 
 function getMediaUrl(m: Message): string | null {
-  // Prefer storage key (MinIO via proxy)
   if (m.payload?.media_key) {
     return `/api/v1/media/${m.payload.media_key}`;
   }
-  // Fallback: CDN proxy (needs channel API key, not usable in browser)
+  if (m.payload?.media_url) {
+    return m.payload.media_url;
+  }
   return null;
 }
 

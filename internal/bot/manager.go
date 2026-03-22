@@ -337,22 +337,27 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 func (m *Manager) downloadAndUpdateMedia(inst *Instance, msg provider.InboundMessage, payloadMap map[string]any, msgIDs []int64) {
 	m.processMedia(inst, &msg)
 
-	// Check if any media failed
-	allOk := true
+	ok := false
 	for _, item := range msg.Items {
-		if item.Media != nil && item.Media.EncryptQueryParam != "" {
-			if item.Media.StorageKey != "" {
-				payloadMap["media_key"] = item.Media.StorageKey
-			} else if item.Media.URL != "" {
-				// CDN proxy fallback
-			} else {
-				allOk = false
-			}
+		if item.Media == nil {
+			continue
+		}
+		if item.Media.StorageKey != "" {
+			// MinIO stored
+			payloadMap["media_key"] = item.Media.StorageKey
+			payloadMap["media_status"] = "ready"
+			ok = true
+			break
+		}
+		if item.Media.URL != "" {
+			// CDN proxy fallback (no MinIO)
+			payloadMap["media_url"] = item.Media.URL
+			payloadMap["media_status"] = "ready"
+			ok = true
+			break
 		}
 	}
-	if allOk {
-		payloadMap["media_status"] = "ready"
-	} else {
+	if !ok {
 		payloadMap["media_status"] = "failed"
 	}
 

@@ -1974,15 +1974,27 @@ func TestMediaStorageAndProxy(t *testing.T) {
 		}},
 	})
 
-	time.Sleep(500 * time.Millisecond)
-
-	// Check message has media_key in payload
+	// Message should be saved immediately
+	time.Sleep(50 * time.Millisecond)
 	msgs, _ := db.ListChannelMessages(ch.ID, "u@wx", 10)
 	if len(msgs) == 0 {
 		t.Fatal("no messages found")
 	}
+	var earlyPayload map[string]any
+	json.Unmarshal(msgs[0].Payload, &earlyPayload)
+	earlyStatus, _ := earlyPayload["media_status"].(string)
+	t.Logf("early media_status = %s", earlyStatus)
+
+	// Wait for async download to complete
+	time.Sleep(500 * time.Millisecond)
+	msgs, _ = db.ListChannelMessages(ch.ID, "u@wx", 10)
 	var payload map[string]any
 	json.Unmarshal(msgs[0].Payload, &payload)
+
+	status, _ := payload["media_status"].(string)
+	if status != "ready" {
+		t.Fatalf("media_status = %q, want ready. payload: %v", status, payload)
+	}
 
 	mediaKey, ok := payload["media_key"].(string)
 	if !ok || mediaKey == "" {
