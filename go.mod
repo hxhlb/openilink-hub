@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.4
-	github.com/openilink/openilink-sdk-go v0.0.0
+	github.com/openilink/openilink-sdk-go v0.1.0
 )
 
 require (
@@ -25,5 +25,3 @@ require (
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 )
-
-replace github.com/openilink/openilink-sdk-go => ../go-sdk

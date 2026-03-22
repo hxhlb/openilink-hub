@@ -11,6 +11,7 @@ import (
 
 	ilink "github.com/openilink/openilink-sdk-go"
 	"github.com/openilink/openilink-hub/internal/auth"
+	"github.com/openilink/openilink-hub/internal/database"
 )
 
 // pendingBinds tracks in-flight QR bind sessions.
@@ -246,6 +247,59 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	stats.ConnectedWS = s.Hub.ConnectedCount()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+func (s *Server) handleBotSend(w http.ResponseWriter, r *http.Request) {
+	botID := r.PathValue("id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	bot, err := s.DB.GetBot(botID)
+	if err != nil || bot.UserID != userID {
+		jsonError(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	var req struct {
+		ToUserID string `json:"to_user_id"`
+		Text     string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Text == "" {
+		jsonError(w, "text required", http.StatusBadRequest)
+		return
+	}
+
+	// Default to the bot's linked user
+	toUser := req.ToUserID
+	if toUser == "" {
+		toUser = bot.ILinkUserID
+	}
+	if toUser == "" {
+		jsonError(w, "no target user (bot has no linked user)", http.StatusBadRequest)
+		return
+	}
+
+	inst, ok := s.BotManager.GetInstance(botID)
+	if !ok {
+		jsonError(w, "bot not connected", http.StatusServiceUnavailable)
+		return
+	}
+
+	clientID, err := inst.SendText(r.Context(), toUser, req.Text)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	s.DB.SaveMessage(&database.Message{
+		BotDBID:     botID,
+		Direction:   "outbound",
+		ToUserID:    toUser,
+		MessageType: 1,
+		Content:     req.Text,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"ok": "true", "client_id": clientID})
 }
 
 func (s *Server) handleBotContacts(w http.ResponseWriter, r *http.Request) {

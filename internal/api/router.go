@@ -18,6 +18,23 @@ type Server struct {
 	Hub          *relay.Hub
 }
 
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		}
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(204)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
@@ -55,10 +72,11 @@ func (s *Server) Handler() http.Handler {
 	protected.HandleFunc("DELETE /api/sublevels/{id}", s.handleDeleteSublevel)
 	protected.HandleFunc("POST /api/sublevels/{id}/rotate-key", s.handleRotateKey)
 
-	// Bot stats & contacts
+	// Bot stats, contacts, send
 	protected.HandleFunc("GET /api/stats", s.handleStats)
 	protected.HandleFunc("GET /api/bots/{id}/contacts", s.handleBotContacts)
 	protected.HandleFunc("PUT /api/bots/{id}/name", s.handleUpdateBotName)
+	protected.HandleFunc("POST /api/bots/{id}/send", s.handleBotSend)
 
 	// Messages
 	protected.HandleFunc("GET /api/messages", s.handleListMessages)
@@ -73,5 +91,5 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("/api/", auth.Middleware(s.DB)(protected))
 
-	return mux
+	return cors(mux)
 }
