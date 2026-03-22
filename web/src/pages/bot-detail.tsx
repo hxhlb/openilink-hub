@@ -122,15 +122,16 @@ export function BotDetailPage() {
       return;
     }
     if (!input.trim() || !id) return;
-    // Optimistic: show in chat immediately
-    const optimistic: Message = {
-      id: -Date.now(), direction: "outbound", sender: "", recipient: "",
-      msg_type: "text", payload: { content: input }, created_at: Date.now() / 1000,
-    };
-    setMessages((prev) => [...prev, optimistic]);
+    const optId = -Date.now();
+    setMessages((prev) => [...prev, {
+      id: optId, direction: "outbound", sender: "", recipient: "",
+      msg_type: "text", payload: { content: input, _sending: true },
+      created_at: Date.now() / 1000,
+    }]);
     const text = input;
     setInput("");
     await doSend({ text });
+    setMessages((prev) => prev.map((m) => m.id === optId ? { ...m, payload: { ...m.payload, _sending: false } } : m));
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -157,19 +158,20 @@ export function BotDetailPage() {
     const preview = pendingPreview;
     const caption = input.trim();
 
-    // Optimistic: show in chat immediately
-    const optimistic: Message = {
-      id: -Date.now(), direction: "outbound", sender: "", recipient: "",
-      msg_type: file.type.startsWith("image/") ? "image" : "file",
+    const optId = -Date.now();
+    const mediaType = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "file";
+    setMessages((prev) => [...prev, {
+      id: optId, direction: "outbound", sender: "", recipient: "",
+      msg_type: mediaType,
       payload: {
         content: caption || file.name,
         media_url: preview || undefined,
-        media_type: file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "file",
+        media_type: mediaType,
         media_status: "ready",
+        _sending: true,
       },
       created_at: Date.now() / 1000,
-    };
-    setMessages((prev) => [...prev, optimistic]);
+    }]);
 
     const form = new FormData();
     form.append("file", file);
@@ -178,6 +180,7 @@ export function BotDetailPage() {
     setPendingFile(null);
     setPendingPreview(null);
     await doSend(form);
+    setMessages((prev) => prev.map((m) => m.id === optId ? { ...m, payload: { ...m.payload, _sending: false } } : m));
   }
 
   async function doSend(body: any) {
@@ -234,14 +237,15 @@ export function BotDetailPage() {
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {messages.map((m) => {
               const isIn = m.direction === "inbound";
+              const isSending = m.payload?._sending;
               return (
                 <div key={m.id} className={`flex ${isIn ? "justify-start" : "justify-end"}`}>
                   <div className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
                     isIn ? "bg-secondary rounded-bl-sm" : "bg-primary text-primary-foreground rounded-br-sm"
-                  }`}>
+                  } ${isSending ? "opacity-60" : ""}`}>
                     <MessageContent m={m} />
                     <div className={`text-[10px] mt-1 ${isIn ? "text-muted-foreground" : "opacity-50"}`}>
-                      {new Date(m.created_at * 1000).toLocaleTimeString()}
+                      {isSending ? "发送中..." : new Date(m.created_at * 1000).toLocaleTimeString()}
                     </div>
                   </div>
                 </div>
@@ -253,11 +257,6 @@ export function BotDetailPage() {
             <div ref={bottomRef} />
           </div>
 
-          {sending && (
-            <div className="px-4 py-2 text-xs text-muted-foreground bg-secondary border-t animate-pulse">
-              发送中...
-            </div>
-          )}
           {sendError && (
             <div className="px-4 py-2 text-xs text-destructive bg-secondary border-t">
               {sendError}
