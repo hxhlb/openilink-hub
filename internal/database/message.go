@@ -125,6 +125,11 @@ func (db *DB) ListChannelMessages(channelID, sender string, limit int) ([]Messag
 	return msgs, rows.Err()
 }
 
+func (db *DB) UpdateMessagePayload(id int64, payload json.RawMessage) error {
+	_, err := db.Exec("UPDATE messages SET payload = $1 WHERE id = $2", payload, id)
+	return err
+}
+
 func (db *DB) GetMessagesSince(botID string, afterSeq int64, limit int) ([]Message, error) {
 	if limit <= 0 {
 		limit = 100

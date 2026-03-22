@@ -21,6 +21,17 @@ function MessageContent({ m }: { m: Message }) {
   const url = getMediaUrl(m);
   const content = m.payload?.content;
   const mediaType = m.payload?.media_type || m.msg_type;
+  const mediaStatus = m.payload?.media_status;
+
+  // Media is downloading
+  if (mediaStatus === "downloading") {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="animate-pulse">⏳</span>
+        {mediaType === "image" ? "图片下载中..." : mediaType === "video" ? "视频下载中..." : mediaType === "voice" ? "语音下载中..." : "文件下载中..."}
+      </div>
+    );
+  }
 
   if (url && mediaType === "image") {
     return <img src={url} alt="image" className="max-w-full rounded-lg max-h-48 cursor-pointer" onClick={() => window.open(url)} />;

@@ -172,7 +172,8 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 
 	_ = m.db.IncrBotMsgCount(inst.DBID)
 
-	// Build payload — store raw media references, not full URLs
+	// Build payload — save immediately, media downloads async
+	hasMedia := false
 	payloadMap := map[string]any{"content": content}
 	if msg.GroupID != "" {
 		payloadMap["group_id"] = msg.GroupID
@@ -182,23 +183,13 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 	}
 	for _, item := range msg.Items {
 		if item.Media != nil && item.Media.EncryptQueryParam != "" {
-			// Always store original CDN params
 			payloadMap["media_cdn"] = map[string]string{
 				"eqp": item.Media.EncryptQueryParam,
 				"aes": item.Media.AESKey,
 			}
 			payloadMap["media_type"] = item.Media.MediaType
-			break
-		}
-	}
-
-	// Process media: download to MinIO (sets item.Media.URL for relay/webhook)
-	m.processMedia(inst, &msg)
-
-	// If stored to MinIO, save the storage key
-	for _, item := range msg.Items {
-		if item.Media != nil && item.Media.StorageKey != "" {
-			payloadMap["media_key"] = item.Media.StorageKey
+			payloadMap["media_status"] = "downloading"
+			hasMedia = true
 			break
 		}
 	}
@@ -251,12 +242,14 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 	}
 
 	// Deliver to each matched channel
+	var savedMsgIDs []int64
 	for _, ch := range matched {
 		chID := ch.ID
 		seqID, _ := m.db.SaveMessage(&database.Message{
 			BotID: inst.DBID, ChannelID: &chID, Direction: "inbound",
 			Sender: msg.Sender, Recipient: msg.Recipient, MsgType: msgType, Payload: payload,
 		})
+		savedMsgIDs = append(savedMsgIDs, seqID)
 		_ = m.db.UpdateChannelLastSeq(ch.ID, seqID)
 
 		env := relay.NewEnvelope("message", relay.MessageData{
@@ -273,6 +266,39 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 		for _, s := range m.sinks {
 			go s.Handle(d)
 		}
+	}
+
+	// Async media download — update message payloads when done
+	if hasMedia {
+		go m.downloadAndUpdateMedia(inst, msg, payloadMap, savedMsgIDs)
+	}
+}
+
+// downloadAndUpdateMedia downloads media files and updates all saved message payloads.
+func (m *Manager) downloadAndUpdateMedia(inst *Instance, msg provider.InboundMessage, payloadMap map[string]any, msgIDs []int64) {
+	m.processMedia(inst, &msg)
+
+	// Update payload with storage key
+	for _, item := range msg.Items {
+		if item.Media != nil && item.Media.StorageKey != "" {
+			payloadMap["media_key"] = item.Media.StorageKey
+			payloadMap["media_status"] = "ready"
+			break
+		}
+	}
+	// If no storage key (no MinIO), still mark as ready with CDN proxy
+	if _, ok := payloadMap["media_key"]; !ok {
+		for _, item := range msg.Items {
+			if item.Media != nil && item.Media.URL != "" {
+				payloadMap["media_status"] = "ready"
+				break
+			}
+		}
+	}
+
+	updated, _ := json.Marshal(payloadMap)
+	for _, id := range msgIDs {
+		m.db.UpdateMessagePayload(id, updated)
 	}
 }
 
