@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 
 const navItems = [
   { path: "/dashboard", icon: Bot, label: "Bot 管理" },
-  { path: "/dashboard/plugins", icon: Puzzle, label: "插件" },
+  { path: "/dashboard/webhook-plugins", icon: Puzzle, label: "Webhook 插件" },
   { path: "/dashboard/settings", icon: Settings, label: "设置" },
 ];
 

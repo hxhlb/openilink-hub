@@ -17,14 +17,14 @@ createRoot(document.getElementById("root")!).render(
       <Routes>
         {/* Public */}
         <Route path="/" element={<HomePage />} />
-        <Route path="/plugins" element={<PluginsPage />} />
+        <Route path="/webhook-plugins" element={<PluginsPage />} />
         <Route path="/login" element={<LoginPage />} />
         {/* Dashboard (authenticated, sidebar layout) */}
         <Route path="/dashboard" element={<Layout />}>
           <Route index element={<BotsPage />} />
           <Route path="bot/:id" element={<BotDetailPage />} />
           <Route path="bot/:id/channel/:cid" element={<ChannelDetailPage />} />
-          <Route path="plugins" element={<PluginsPage embedded />} />
+          <Route path="webhook-plugins" element={<PluginsPage embedded />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
