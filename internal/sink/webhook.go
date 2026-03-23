@@ -90,11 +90,45 @@ func (s *Webhook) Handle(d Delivery) {
 	s.sendReplies(d, replies)
 }
 
+const (
+	scriptTimeout      = 5 * time.Second
+	scriptMaxCallStack = 64
+	scriptMaxReplies   = 10
+)
+
+// runScriptWithTimeout runs a goja function with a timeout guard.
+// If the script exceeds the deadline, the VM is interrupted.
+func runScriptWithTimeout(vm *goja.Runtime, fn goja.Callable, args ...goja.Value) (goja.Value, error) {
+	done := make(chan struct{})
+	timer := time.AfterFunc(scriptTimeout, func() {
+		vm.Interrupt("script execution timeout")
+	})
+	defer timer.Stop()
+
+	var result goja.Value
+	var err error
+	go func() {
+		defer close(done)
+		result, err = fn(goja.Undefined(), args...)
+	}()
+	<-done
+
+	// Clear interrupt for potential reuse (won't happen but good hygiene)
+	vm.ClearInterrupt()
+	return result, err
+}
+
 func (s *Webhook) runScript(script string, msg webhookPayload, req *reqData, channelID string) (
 	outReq *reqData, outRes *resData, replies []string, skipped bool, err error,
 ) {
 	vm := goja.New()
 	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
+	vm.SetMaxCallStackSize(scriptMaxCallStack)
+
+	// Sandbox: remove potentially dangerous globals
+	for _, name := range []string{"eval", "Function"} {
+		vm.GlobalObject().Delete(name)
+	}
 
 	// Build ctx
 	ctx := map[string]any{
@@ -107,11 +141,20 @@ func (s *Webhook) runScript(script string, msg webhookPayload, req *reqData, cha
 		},
 	}
 	vm.Set("ctx", ctx)
-	vm.Set("reply", func(text string) { replies = append(replies, text) })
+	vm.Set("reply", func(text string) {
+		if len(replies) < scriptMaxReplies {
+			replies = append(replies, text)
+		}
+	})
 	vm.Set("skip", func() { skipped = true })
 
-	// Define onRequest/onResponse as top-level functions
+	// Define onRequest/onResponse as top-level functions (with timeout)
+	timer := time.AfterFunc(scriptTimeout, func() {
+		vm.Interrupt("script parse timeout")
+	})
 	_, err = vm.RunString(script)
+	timer.Stop()
+	vm.ClearInterrupt()
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -119,7 +162,7 @@ func (s *Webhook) runScript(script string, msg webhookPayload, req *reqData, cha
 	// Phase 1: onRequest
 	if fn := vm.Get("onRequest"); fn != nil && !goja.IsUndefined(fn) {
 		if callable, ok := goja.AssertFunction(fn); ok {
-			if _, err := callable(goja.Undefined(), vm.Get("ctx")); err != nil {
+			if _, err := runScriptWithTimeout(vm, callable, vm.Get("ctx")); err != nil {
 				return nil, nil, nil, false, err
 			}
 		}
@@ -139,14 +182,13 @@ func (s *Webhook) runScript(script string, msg webhookPayload, req *reqData, cha
 	if outRes != nil {
 		if fn := vm.Get("onResponse"); fn != nil && !goja.IsUndefined(fn) {
 			if callable, ok := goja.AssertFunction(fn); ok {
-				// Set ctx.res
 				ctxObj := vm.Get("ctx").ToObject(vm)
 				ctxObj.Set("res", map[string]any{
 					"status":  outRes.Status,
 					"headers": outRes.Headers,
 					"body":    outRes.Body,
 				})
-				if _, err := callable(goja.Undefined(), vm.Get("ctx")); err != nil {
+				if _, err := runScriptWithTimeout(vm, callable, vm.Get("ctx")); err != nil {
 					slog.Error("webhook onResponse error", "channel", channelID, "err", err)
 				}
 			}
