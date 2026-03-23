@@ -153,7 +153,25 @@ func (db *DB) ListPlugins(status string) ([]Plugin, error) {
 		}
 		plugins = append(plugins, *p)
 	}
-	return plugins, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// For approved: deduplicate by (submitted_by, name), keep latest version only
+	if status == "approved" {
+		seen := map[string]bool{}
+		var deduped []Plugin
+		for _, p := range plugins {
+			key := p.SubmittedBy + ":" + p.Name
+			if !seen[key] {
+				seen[key] = true
+				deduped = append(deduped, p)
+			}
+		}
+		return deduped, nil
+	}
+
+	return plugins, nil
 }
 
 // ListPluginsByUser returns all plugins submitted by a user.
