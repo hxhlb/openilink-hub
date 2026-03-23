@@ -13,7 +13,7 @@ const statusMap: Record<string, { label: string; variant: "default" | "outline" 
   rejected: { label: "已拒绝", variant: "destructive" },
 };
 
-export function PluginsPage() {
+export function PluginsPage({ embedded }: { embedded?: boolean }) {
   const [plugins, setPlugins] = useState<any[]>([]);
   const [tab, setTab] = useState<"marketplace" | "submit" | "review">("marketplace");
   const [user, setUser] = useState<any>(null);
@@ -30,22 +30,8 @@ export function PluginsPage() {
   const isLoggedIn = !!user;
   const isAdmin = user?.role === "admin";
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <Link to="/" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /></Link>
-          <Puzzle className="w-4 h-4 text-primary" />
-          <span className="font-semibold text-sm">Webhook 插件市场</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {!isLoggedIn && <Link to="/login"><Button size="sm" className="text-xs">登录</Button></Link>}
-          {isLoggedIn && <span className="text-xs text-muted-foreground">{user.username}</span>}
-        </div>
-      </header>
-
-      <main className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-5">
+  const content = (
+    <div className="space-y-5">
         {/* Hero banner */}
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <div className="flex items-start justify-between gap-4">
@@ -131,8 +117,27 @@ export function PluginsPage() {
             {plugins.map((p) => <ReviewCard key={p.id} plugin={p} onRefresh={load} />)}
           </div>
         )}
-      </main>
+    </div>
+  );
 
+  if (embedded) return content;
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b px-6 py-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Link to="/home" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /></Link>
+          <Puzzle className="w-4 h-4 text-primary" />
+          <span className="font-semibold text-sm">Webhook 插件市场</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {!isLoggedIn && <Link to="/login"><Button size="sm" className="text-xs">登录</Button></Link>}
+          {isLoggedIn && <span className="text-xs text-muted-foreground">{user.username}</span>}
+        </div>
+      </header>
+      <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
+        {content}
+      </main>
       <footer className="border-t py-3 text-center text-[10px] text-muted-foreground">
         <a href="https://github.com/openilink/openilink-hub" target="_blank" rel="noopener" className="hover:text-primary">OpenILink Hub</a>
         {" · "}Webhook 插件运行在安全沙箱中（5s 超时 · 禁止系统访问 · 管理员审核）

@@ -28,6 +28,7 @@ export function Layout() {
   // Determine active nav item (match prefix for sub-pages like /bot/:id)
   function isActive(path: string) {
     if (path === "/") return location.pathname === "/" || location.pathname.startsWith("/bot/");
+    if (path === "/webhook-plugins") return location.pathname === "/webhook-plugins";
     return location.pathname.startsWith(path);
   }
 
@@ -46,8 +47,6 @@ export function Layout() {
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
           {navItems.map((item) => {
-            // Plugin marketplace is public, skip if in Layout
-            if (item.path === "/webhook-plugins") return null;
             const active = isActive(item.path);
             return (
               <Link key={item.path} to={item.path}
@@ -59,10 +58,6 @@ export function Layout() {
               </Link>
             );
           })}
-          <a href="/webhook-plugins" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
-            <Puzzle className="w-4 h-4" />
-            插件市场
-          </a>
         </nav>
 
         {/* Footer */}

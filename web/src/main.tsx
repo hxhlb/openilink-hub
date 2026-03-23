@@ -11,19 +11,25 @@ import { SettingsPage } from "./pages/settings";
 import { PluginsPage } from "./pages/plugins";
 import { ChannelDetailPage } from "./pages/channel-detail";
 
+// PluginsInLayout wraps PluginsPage content within the sidebar layout
+function PluginsInLayout() {
+  return <PluginsPage embedded />;
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        {/* Public pages */}
+        {/* Public pages (no sidebar) */}
         <Route path="/home" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/webhook-plugins" element={<PluginsPage />} />
-        {/* Authenticated pages */}
+        <Route path="/marketplace" element={<PluginsPage />} />
+        {/* Authenticated pages (with sidebar) */}
         <Route element={<Layout />}>
           <Route path="/" element={<BotsPage />} />
           <Route path="/bot/:id" element={<BotDetailPage />} />
           <Route path="/bot/:id/channel/:cid" element={<ChannelDetailPage />} />
+          <Route path="/webhook-plugins" element={<PluginsInLayout />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
