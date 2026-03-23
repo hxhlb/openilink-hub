@@ -110,6 +110,7 @@ func (s *Server) handleSubmitPlugin(w http.ResponseWriter, r *http.Request) {
 		existing.MatchTypes = meta.Match
 		existing.ConnectDomains = meta.Connect
 		existing.GrantPerms = strings.Join(meta.Grant, ",")
+		existing.TimeoutSec = meta.TimeoutSec
 		if err := s.DB.UpdatePluginVersion(existing.ID, existing); err != nil {
 			jsonError(w, "update version failed", http.StatusInternalServerError)
 			return
@@ -125,6 +126,7 @@ func (s *Server) handleSubmitPlugin(w http.ResponseWriter, r *http.Request) {
 		Script: script, ConfigSchema: configSchema,
 		GithubURL: githubURL, CommitHash: commitHash,
 		MatchTypes: meta.Match, ConnectDomains: meta.Connect, GrantPerms: strings.Join(meta.Grant, ","),
+		TimeoutSec: meta.TimeoutSec,
 	})
 	if err != nil {
 		slog.Error("create version failed", "plugin", plugin.ID, "err", err)
@@ -436,6 +438,7 @@ func fetchGithubCommitHash(owner, repo, path string) (string, error) {
 type pluginMeta struct {
 	Name, Description, Author, Version, Namespace, Icon, License, Homepage string
 	Match, Connect, Changelog                                              string
+	TimeoutSec                                                             int
 	Grant                                                                  []string
 	Config                                                                 []database.ConfigField
 }
@@ -486,6 +489,16 @@ func parsePluginMeta(script string) pluginMeta {
 			meta.Connect = val
 		case "changelog":
 			meta.Changelog = val
+		case "timeout":
+			if n, err := fmt.Sscanf(val, "%d", &meta.TimeoutSec); n == 0 || err != nil {
+				meta.TimeoutSec = 5
+			}
+			if meta.TimeoutSec < 1 {
+				meta.TimeoutSec = 1
+			}
+			if meta.TimeoutSec > 60 {
+				meta.TimeoutSec = 60
+			}
 		case "grant":
 			for _, g := range strings.Split(val, ",") {
 				if g = strings.TrimSpace(g); g != "" {

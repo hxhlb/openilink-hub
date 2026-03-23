@@ -303,13 +303,17 @@ func (s *Webhook) Handle(d Delivery) {
 
 	// Resolve script: PluginID is a version ID
 	script := cfg.Script
+	scriptTimeout := scriptTimeout // default 5s
 	if cfg.PluginID != "" {
-		resolvedScript, resolvedVersion, err := s.DB.ResolvePluginScript(cfg.PluginID)
+		resolvedScript, resolvedVersion, timeoutSec, err := s.DB.ResolvePluginScript(cfg.PluginID)
 		if err != nil {
 			slog.Error("webhook plugin resolve failed", "channel", d.Channel.ID, "version_id", cfg.PluginID, "err", err)
 		} else {
 			script = resolvedScript
 			pluginVersion = resolvedVersion
+			if timeoutSec > 0 && timeoutSec <= 60 {
+				scriptTimeout = time.Duration(timeoutSec) * time.Second
+			}
 		}
 	}
 	if pluginVersion != "" {
@@ -319,7 +323,7 @@ func (s *Webhook) Handle(d Delivery) {
 	// Step 1: Run script
 	if script != "" {
 		var err error
-		req, res, replies, skipped, err = s.runScript(script, msg, req, d.Channel.ID)
+		req, res, replies, skipped, err = s.runScript(script, msg, req, d.Channel.ID, scriptTimeout)
 		if err != nil {
 			slog.Error("webhook script error", "channel", d.Channel.ID, "err", err)
 			s.DB.UpdateWebhookLogResult(logID, "error", err.Error(), nil)
@@ -550,9 +554,15 @@ type replyAction struct {
 	Filename string // optional filename for base64
 }
 
-func (s *Webhook) runScript(script string, msg webhookPayload, req *reqData, channelID string) (
+func (s *Webhook) runScript(script string, msg webhookPayload, req *reqData, channelID string, timeout ...time.Duration) (
 	outReq *reqData, outRes *resData, replies []replyAction, skipped bool, err error,
 ) {
+	// Resolve timeout
+	execTimeout := scriptTimeout
+	if len(timeout) > 0 && timeout[0] > 0 {
+		execTimeout = timeout[0]
+	}
+
 	// Parse permissions from script metadata
 	grants, matchTypes, connectDomains := parseScriptPerms(script)
 
@@ -646,7 +656,7 @@ func (s *Webhook) runScript(script string, msg webhookPayload, req *reqData, cha
 	_ = connectDomains // used after script execution
 
 	// Define onRequest/onResponse as top-level functions (with timeout)
-	timer := time.AfterFunc(scriptTimeout, func() {
+	timer := time.AfterFunc(execTimeout, func() {
 		vm.Interrupt("script parse timeout")
 	})
 	_, err = vm.RunString(script)

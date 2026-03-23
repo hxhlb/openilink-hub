@@ -40,6 +40,7 @@ type PluginVersion struct {
 	MatchTypes     string          `json:"match_types"`
 	ConnectDomains string          `json:"connect_domains"`
 	GrantPerms     string          `json:"grant_perms"`
+	TimeoutSec     int             `json:"timeout_sec"`
 	Status         string          `json:"status"`
 	RejectReason   string          `json:"reject_reason,omitempty"`
 	ReviewedBy     string          `json:"reviewed_by,omitempty"`
@@ -177,25 +178,28 @@ func (db *DB) DeletePlugin(id string) error {
 
 func (db *DB) CreatePluginVersion(v *PluginVersion) (*PluginVersion, error) {
 	v.ID = uuid.New().String()
+	if v.TimeoutSec <= 0 {
+		v.TimeoutSec = 5
+	}
 	_, err := db.Exec(`INSERT INTO plugin_versions
 		(id, plugin_id, version, changelog, script, config_schema, github_url, commit_hash,
-		 match_types, connect_domains, grant_perms, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')`,
+		 match_types, connect_domains, grant_perms, timeout_sec, status)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending')`,
 		v.ID, v.PluginID, v.Version, v.Changelog, v.Script, v.ConfigSchema,
-		v.GithubURL, v.CommitHash, v.MatchTypes, v.ConnectDomains, v.GrantPerms)
+		v.GithubURL, v.CommitHash, v.MatchTypes, v.ConnectDomains, v.GrantPerms, v.TimeoutSec)
 	return v, err
 }
 
 func (db *DB) GetPluginVersion(id string) (*PluginVersion, error) {
 	v := &PluginVersion{}
 	err := db.QueryRow(`SELECT v.id, v.plugin_id, v.version, v.changelog, v.script, v.config_schema,
-		v.github_url, v.commit_hash, v.match_types, v.connect_domains, v.grant_perms,
+		v.github_url, v.commit_hash, v.match_types, v.connect_domains, v.grant_perms, v.timeout_sec,
 		v.status, v.reject_reason, v.reviewed_by,
 		EXTRACT(EPOCH FROM v.created_at)::BIGINT, COALESCE(u.username, '')
 		FROM plugin_versions v LEFT JOIN users u ON u.id = v.reviewed_by
 		WHERE v.id = $1`, id).
 		Scan(&v.ID, &v.PluginID, &v.Version, &v.Changelog, &v.Script, &v.ConfigSchema,
-			&v.GithubURL, &v.CommitHash, &v.MatchTypes, &v.ConnectDomains, &v.GrantPerms,
+			&v.GithubURL, &v.CommitHash, &v.MatchTypes, &v.ConnectDomains, &v.GrantPerms, &v.TimeoutSec,
 			&v.Status, &v.RejectReason, &v.ReviewedBy, &v.CreatedAt, &v.ReviewerName)
 	return v, err
 }
@@ -203,7 +207,7 @@ func (db *DB) GetPluginVersion(id string) (*PluginVersion, error) {
 func (db *DB) ListPluginVersions(pluginID string) ([]PluginVersion, error) {
 	rows, err := db.Query(`SELECT v.id, v.plugin_id, v.version, v.changelog, '',
 		v.config_schema, v.github_url, v.commit_hash,
-		v.match_types, v.connect_domains, v.grant_perms,
+		v.match_types, v.connect_domains, v.grant_perms, v.timeout_sec,
 		v.status, v.reject_reason, v.reviewed_by,
 		EXTRACT(EPOCH FROM v.created_at)::BIGINT, COALESCE(u.username, '')
 		FROM plugin_versions v LEFT JOIN users u ON u.id = v.reviewed_by
@@ -217,7 +221,7 @@ func (db *DB) ListPluginVersions(pluginID string) ([]PluginVersion, error) {
 		var v PluginVersion
 		if err := rows.Scan(&v.ID, &v.PluginID, &v.Version, &v.Changelog, &v.Script,
 			&v.ConfigSchema, &v.GithubURL, &v.CommitHash,
-			&v.MatchTypes, &v.ConnectDomains, &v.GrantPerms,
+			&v.MatchTypes, &v.ConnectDomains, &v.GrantPerms, &v.TimeoutSec,
 			&v.Status, &v.RejectReason, &v.ReviewedBy, &v.CreatedAt, &v.ReviewerName); err != nil {
 			return nil, err
 		}
@@ -230,7 +234,7 @@ func (db *DB) ListPluginVersions(pluginID string) ([]PluginVersion, error) {
 func (db *DB) ListPendingVersions() ([]PluginVersion, error) {
 	rows, err := db.Query(`SELECT v.id, v.plugin_id, v.version, v.changelog, '',
 		v.config_schema, v.github_url, v.commit_hash,
-		v.match_types, v.connect_domains, v.grant_perms,
+		v.match_types, v.connect_domains, v.grant_perms, v.timeout_sec,
 		v.status, v.reject_reason, v.reviewed_by,
 		EXTRACT(EPOCH FROM v.created_at)::BIGINT, COALESCE(u.username, '')
 		FROM plugin_versions v LEFT JOIN users u ON u.id = v.reviewed_by
@@ -244,7 +248,7 @@ func (db *DB) ListPendingVersions() ([]PluginVersion, error) {
 		var v PluginVersion
 		if err := rows.Scan(&v.ID, &v.PluginID, &v.Version, &v.Changelog, &v.Script,
 			&v.ConfigSchema, &v.GithubURL, &v.CommitHash,
-			&v.MatchTypes, &v.ConnectDomains, &v.GrantPerms,
+			&v.MatchTypes, &v.ConnectDomains, &v.GrantPerms, &v.TimeoutSec,
 			&v.Status, &v.RejectReason, &v.ReviewedBy, &v.CreatedAt, &v.ReviewerName); err != nil {
 			return nil, err
 		}
@@ -260,25 +264,28 @@ func (db *DB) FindPendingVersion(pluginID string) (*PluginVersion, error) {
 func (db *DB) getVersionByPluginAndStatus(pluginID, status string) (*PluginVersion, error) {
 	v := &PluginVersion{}
 	err := db.QueryRow(`SELECT v.id, v.plugin_id, v.version, v.changelog, v.script, v.config_schema,
-		v.github_url, v.commit_hash, v.match_types, v.connect_domains, v.grant_perms,
+		v.github_url, v.commit_hash, v.match_types, v.connect_domains, v.grant_perms, v.timeout_sec,
 		v.status, v.reject_reason, v.reviewed_by,
 		EXTRACT(EPOCH FROM v.created_at)::BIGINT, COALESCE(u.username, '')
 		FROM plugin_versions v LEFT JOIN users u ON u.id = v.reviewed_by
 		WHERE v.plugin_id = $1 AND v.status = $2
 		ORDER BY v.created_at DESC LIMIT 1`, pluginID, status).
 		Scan(&v.ID, &v.PluginID, &v.Version, &v.Changelog, &v.Script, &v.ConfigSchema,
-			&v.GithubURL, &v.CommitHash, &v.MatchTypes, &v.ConnectDomains, &v.GrantPerms,
+			&v.GithubURL, &v.CommitHash, &v.MatchTypes, &v.ConnectDomains, &v.GrantPerms, &v.TimeoutSec,
 			&v.Status, &v.RejectReason, &v.ReviewedBy, &v.CreatedAt, &v.ReviewerName)
 	return v, err
 }
 
 func (db *DB) UpdatePluginVersion(id string, v *PluginVersion) error {
+	if v.TimeoutSec <= 0 {
+		v.TimeoutSec = 5
+	}
 	_, err := db.Exec(`UPDATE plugin_versions SET version=$1, changelog=$2, script=$3, config_schema=$4,
-		github_url=$5, commit_hash=$6, match_types=$7, connect_domains=$8, grant_perms=$9,
+		github_url=$5, commit_hash=$6, match_types=$7, connect_domains=$8, grant_perms=$9, timeout_sec=$10,
 		status='pending', reject_reason='', reviewed_by=''
-		WHERE id=$10`,
+		WHERE id=$11`,
 		v.Version, v.Changelog, v.Script, v.ConfigSchema,
-		v.GithubURL, v.CommitHash, v.MatchTypes, v.ConnectDomains, v.GrantPerms, id)
+		v.GithubURL, v.CommitHash, v.MatchTypes, v.ConnectDomains, v.GrantPerms, v.TimeoutSec, id)
 	return err
 }
 
@@ -328,11 +335,14 @@ func (db *DB) FindPluginOwner(name string) (string, error) {
 }
 
 // ResolvePluginScript returns the script for a given version ID (used by webhook sink).
-func (db *DB) ResolvePluginScript(versionID string) (script, version string, err error) {
-	err = db.QueryRow("SELECT script, version FROM plugin_versions WHERE id = $1 AND status = 'approved'", versionID).
-		Scan(&script, &version)
+func (db *DB) ResolvePluginScript(versionID string) (script, version string, timeoutSec int, err error) {
+	err = db.QueryRow("SELECT script, version, timeout_sec FROM plugin_versions WHERE id = $1 AND status = 'approved'", versionID).
+		Scan(&script, &version, &timeoutSec)
 	if err != nil {
-		return "", "", fmt.Errorf("plugin version not found or not approved: %w", err)
+		return "", "", 0, fmt.Errorf("plugin version not found or not approved: %w", err)
 	}
-	return script, version, nil
+	if timeoutSec <= 0 {
+		timeoutSec = 5
+	}
+	return script, version, timeoutSec, nil
 }

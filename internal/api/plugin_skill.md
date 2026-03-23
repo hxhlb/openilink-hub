@@ -52,6 +52,7 @@ function onResponse(ctx) {
 | `@match` | No | `*` | Message types to trigger on (comma-separated: text,image,voice,video,file) |
 | `@connect` | No | `*` | Allowed URL domains for ctx.req.url (comma-separated) |
 | `@grant` | No | all | Required permissions: `reply`, `skip`, `none` (comma-separated) |
+| `@timeout` | No | 5 | Script execution timeout in seconds (1-60) |
 | `@config` | No | — | Configurable parameter (can have multiple) |
 
 ### @match — Message Type Filter
@@ -86,6 +87,18 @@ Declares which APIs the plugin needs. If `@grant` is not specified, all APIs are
 // @grant  skip          can call skip()
 // @grant  reply,skip    can call both
 ```
+
+### @timeout — Execution Timeout
+
+Override the default 5-second script timeout. Useful for plugins that call slow APIs.
+
+```
+// @timeout  5     default (5 seconds)
+// @timeout  30    slow API (30 seconds)
+// @timeout  60    maximum allowed
+```
+
+Range: 1–60 seconds. Values outside this range are clamped.
 
 ### @config Syntax
 
