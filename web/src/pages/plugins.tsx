@@ -15,7 +15,7 @@ const statusMap: Record<string, { label: string; variant: "default" | "outline" 
 
 export function PluginsPage({ embedded }: { embedded?: boolean }) {
   const [plugins, setPlugins] = useState<any[]>([]);
-  const [tab, setTab] = useState<"marketplace" | "submit" | "review">("marketplace");
+  const [tab, setTab] = useState<"marketplace" | "submit" | "debug" | "review">("marketplace");
   const [user, setUser] = useState<any>(null);
 
   async function load() {
@@ -77,7 +77,10 @@ export function PluginsPage({ embedded }: { embedded?: boolean }) {
             市场 {plugins.length > 0 && tab === "marketplace" ? `(${plugins.length})` : ""}
           </button>
           {isLoggedIn && (
-            <button className={`px-3 py-1 text-xs cursor-pointer ${tab === "submit" ? "bg-secondary" : "text-muted-foreground"}`} onClick={() => setTab("submit")}>提交插件</button>
+            <button className={`px-3 py-1 text-xs cursor-pointer ${tab === "submit" ? "bg-secondary" : "text-muted-foreground"}`} onClick={() => setTab("submit")}>提交</button>
+          )}
+          {isLoggedIn && (
+            <button className={`px-3 py-1 text-xs cursor-pointer ${tab === "debug" ? "bg-secondary" : "text-muted-foreground"}`} onClick={() => setTab("debug")}>调试</button>
           )}
           {isAdmin && (
             <button className={`px-3 py-1 text-xs cursor-pointer ${tab === "review" ? "bg-secondary" : "text-muted-foreground"}`} onClick={() => setTab("review")}>
@@ -105,6 +108,8 @@ export function PluginsPage({ embedded }: { embedded?: boolean }) {
         )}
 
         {tab === "submit" && <SubmitForm onSubmitted={() => { setTab("marketplace"); load(); }} />}
+
+        {tab === "debug" && <DebugPanel />}
 
         {tab === "review" && (
           <div className="space-y-4">
@@ -560,4 +565,177 @@ function onRequest(ctx) {
       </Card>
     </div>
   );
+}
+
+function DebugPanel() {
+  const [script, setScript] = useState(`// ==WebhookPlugin==
+// @name         调试插件
+// @version      1.0.0
+// @match        text
+// @connect      *
+// @grant        reply
+// ==/WebhookPlugin==
+
+function onRequest(ctx) {
+  ctx.req.body = JSON.stringify({
+    text: ctx.msg.sender + ": " + ctx.msg.content
+  });
+}
+
+function onResponse(ctx) {
+  if (ctx.res.status === 200) {
+    reply("收到响应: " + ctx.res.status);
+  }
+}`);
+  const [webhookUrl, setWebhookUrl] = useState("https://httpbin.org/post");
+  const [sender, setSender] = useState("test_user@debug");
+  const [content, setContent] = useState("Hello from debug");
+  const [msgType, setMsgType] = useState("text");
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  async function handleRun() {
+    setRunning(true);
+    setResult(null);
+    try {
+      const r = await api.debugPlugin({
+        script,
+        webhook_url: webhookUrl,
+        mock_message: { sender, content, msg_type: msgType },
+      });
+      setResult(r);
+    } catch (err: any) {
+      setResult({ error: err.message, logs: [] });
+    }
+    setRunning(false);
+  }
+
+  const logColors: Record<string, string> = {
+    "✓": "text-primary",
+    "✕": "text-destructive",
+    "⚠": "text-yellow-500",
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-3">
+        <h3 className="text-sm font-medium">插件调试器</h3>
+        <p className="text-xs text-muted-foreground">
+          输入脚本和模拟消息，实际执行完整流程（包括 HTTP 请求）并查看结果。
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left: Script */}
+          <div className="space-y-2">
+            <p className="text-[10px] text-muted-foreground font-medium">脚本</p>
+            <textarea
+              value={script}
+              onChange={(e) => setScript(e.target.value)}
+              rows={20}
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-[11px] font-mono placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring resize-none"
+            />
+          </div>
+
+          {/* Right: Config + Result */}
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <p className="text-[10px] text-muted-foreground font-medium">Webhook URL</p>
+              <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} className="h-7 text-[11px] font-mono" />
+
+              <p className="text-[10px] text-muted-foreground font-medium">模拟消息</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={sender} onChange={(e) => setSender(e.target.value)} placeholder="发送者" className="h-7 text-[11px]" />
+                <select value={msgType} onChange={(e) => setMsgType(e.target.value)} className="h-7 text-[11px] rounded-md border border-input bg-transparent px-2">
+                  <option value="text">text</option>
+                  <option value="image">image</option>
+                  <option value="voice">voice</option>
+                  <option value="video">video</option>
+                  <option value="file">file</option>
+                </select>
+              </div>
+              <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="消息内容" className="h-7 text-[11px]" />
+
+              <Button size="sm" onClick={handleRun} disabled={running} className="w-full">
+                {running ? "执行中..." : "▶ 运行"}
+              </Button>
+            </div>
+
+            {/* Result */}
+            {result && (
+              <div className="space-y-2">
+                {/* Logs */}
+                <div className="rounded-lg border bg-card p-3 space-y-0.5">
+                  <p className="text-[10px] font-medium mb-1">执行日志</p>
+                  {(result.logs || []).map((log: string, i: number) => {
+                    const prefix = log.charAt(0);
+                    const color = logColors[prefix] || "text-muted-foreground";
+                    return <p key={i} className={`text-[10px] font-mono ${color}`}>{log}</p>;
+                  })}
+                  {result.error && <p className="text-[10px] font-mono text-destructive">✕ {result.error}</p>}
+                </div>
+
+                {/* Permissions */}
+                {result.permissions && (
+                  <div className="rounded-lg border bg-card p-3">
+                    <p className="text-[10px] font-medium mb-1">权限</p>
+                    <div className="text-[10px] text-muted-foreground space-y-0.5">
+                      <p>@grant: {(result.permissions.grants || []).join(", ") || "none"}</p>
+                      <p>@match: {result.permissions.match}</p>
+                      <p>@connect: {result.permissions.connect}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Replies */}
+                {(result.replies || []).length > 0 && (
+                  <div className="rounded-lg border bg-card p-3">
+                    <p className="text-[10px] font-medium mb-1">reply() 输出</p>
+                    {result.replies.map((r: string, i: number) => (
+                      <p key={i} className="text-[10px] font-mono text-primary">{r}</p>
+                    ))}
+                  </div>
+                )}
+
+                {/* Request */}
+                {result.request && (
+                  <div className="rounded-lg border bg-card">
+                    <div className="px-3 py-1.5 border-b flex items-center justify-between">
+                      <p className="text-[10px] font-medium">请求</p>
+                      <span className="text-[10px] text-muted-foreground">{result.request.method} {result.request.url}</span>
+                    </div>
+                    <pre className="px-3 py-2 text-[10px] font-mono overflow-x-auto max-h-32 overflow-y-auto whitespace-pre-wrap">{
+                      tryPrettyJSON(result.request.body)
+                    }</pre>
+                  </div>
+                )}
+
+                {/* Response */}
+                {result.response && (
+                  <div className="rounded-lg border bg-card">
+                    <div className="px-3 py-1.5 border-b flex items-center justify-between">
+                      <p className="text-[10px] font-medium">响应</p>
+                      <span className={`text-[10px] ${result.response.status < 400 ? "text-primary" : "text-destructive"}`}>{result.response.status}</span>
+                    </div>
+                    <pre className="px-3 py-2 text-[10px] font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">{
+                      tryPrettyJSON(result.response.body)
+                    }</pre>
+                  </div>
+                )}
+
+                {result.skipped && (
+                  <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
+                    <p className="text-[10px] text-yellow-500">skip() 被调用 — 实际部署时不会发送 HTTP 请求</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function tryPrettyJSON(s: string): string {
+  try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
 }

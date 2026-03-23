@@ -46,6 +46,137 @@ type Webhook struct {
 
 func (s *Webhook) Name() string { return "webhook" }
 
+// DebugResult holds the result of a script debug execution.
+type DebugResult struct {
+	Request  *reqData `json:"request"`            // modified request (nil if skipped)
+	Response *resData `json:"response,omitempty"` // HTTP response
+	Replies  []string `json:"replies"`            // reply() calls
+	Skipped  bool     `json:"skipped"`            // skip() was called
+	Error    string   `json:"error,omitempty"`    // script error
+	Logs     []string `json:"logs"`               // execution trace
+	Perms    DebugPerms `json:"permissions"`      // parsed permissions
+}
+
+type DebugPerms struct {
+	Grants  []string `json:"grants"`
+	Match   string   `json:"match"`
+	Connect string   `json:"connect"`
+}
+
+// DebugScript executes a script with mock data end-to-end:
+// parse → onRequest → HTTP request → onResponse → replies.
+func DebugScript(script string, mockMsg webhookPayload, webhookURL string) *DebugResult {
+	result := &DebugResult{Logs: []string{}, Replies: []string{}}
+
+	grants, matchTypes, connectDomains := parseScriptPerms(script)
+	result.Perms = DebugPerms{
+		Match:   joinKeys(matchTypes),
+		Connect: joinKeys(connectDomains),
+	}
+	for k := range grants {
+		result.Perms.Grants = append(result.Perms.Grants, k)
+	}
+
+	// @match check
+	if !matchTypes["*"] && !matchTypes[mockMsg.MsgType] {
+		result.Skipped = true
+		result.Logs = append(result.Logs, fmt.Sprintf("@match 过滤：消息类型 %q 不匹配 %s，跳过", mockMsg.MsgType, joinKeys(matchTypes)))
+		return result
+	}
+	result.Logs = append(result.Logs, "✓ @match 通过")
+
+	// Build initial request
+	body, _ := json.Marshal(mockMsg)
+	if webhookURL == "" {
+		webhookURL = "https://httpbin.org/post"
+	}
+	req := &reqData{
+		URL:     webhookURL,
+		Method:  "POST",
+		Headers: map[string]string{"Content-Type": "application/json"},
+		Body:    string(body),
+	}
+
+	// Full script execution (includes onRequest + HTTP + onResponse)
+	w := &Webhook{}
+	outReq, outRes, replies, skipped, err := w.runScript(script, mockMsg, req, "debug")
+	if err != nil {
+		result.Error = err.Error()
+		result.Logs = append(result.Logs, "✕ 脚本错误: "+err.Error())
+		return result
+	}
+	result.Logs = append(result.Logs, "✓ onRequest 执行完成")
+
+	result.Skipped = skipped
+	result.Replies = replies
+
+	if skipped {
+		result.Logs = append(result.Logs, "⚠ skip() 被调用，跳过 HTTP 请求")
+		return result
+	}
+
+	// @connect check
+	if !connectDomains["*"] && outReq != nil && outReq.URL != req.URL {
+		if !isDomainAllowed(outReq.URL, connectDomains) {
+			result.Error = fmt.Sprintf("@connect 拦截: %s 不在白名单", outReq.URL)
+			result.Logs = append(result.Logs, "✕ "+result.Error)
+			return result
+		}
+	}
+
+	result.Request = outReq
+	if outReq != nil {
+		result.Logs = append(result.Logs, fmt.Sprintf("✓ HTTP %s %s (%d 字节)", outReq.Method, outReq.URL, len(outReq.Body)))
+	}
+
+	if outRes != nil {
+		result.Response = outRes
+		result.Logs = append(result.Logs, fmt.Sprintf("✓ 响应 %d (%d 字节)", outRes.Status, len(outRes.Body)))
+	} else {
+		result.Logs = append(result.Logs, "✕ HTTP 请求失败（无响应）")
+	}
+
+	if len(replies) > 0 {
+		result.Logs = append(result.Logs, fmt.Sprintf("✓ reply() 调用 %d 次", len(replies)))
+	}
+
+	return result
+}
+
+// MockPayload creates a test webhookPayload for debugging.
+func MockPayload(sender, content, msgType string) webhookPayload {
+	if sender == "" {
+		sender = "test_user@debug"
+	}
+	if content == "" {
+		content = "Hello from debug"
+	}
+	if msgType == "" {
+		msgType = "text"
+	}
+	return webhookPayload{
+		Event:     "message",
+		ChannelID: "debug-channel",
+		BotID:     "debug-bot",
+		SeqID:     1,
+		Sender:    sender,
+		MsgType:   msgType,
+		Content:   content,
+		Timestamp: time.Now().UnixMilli(),
+		Items: []webhookItem{
+			{Type: msgType, Text: content},
+		},
+	}
+}
+
+func joinKeys(m map[string]bool) string {
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return strings.Join(keys, ",")
+}
+
 func (s *Webhook) Handle(d Delivery) {
 	cfg := d.Channel.WebhookConfig
 	if cfg.URL == "" {

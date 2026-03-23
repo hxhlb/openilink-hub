@@ -13,6 +13,7 @@ import (
 
 	"github.com/openilink/openilink-hub/internal/auth"
 	"github.com/openilink/openilink-hub/internal/database"
+	"github.com/openilink/openilink-hub/internal/sink"
 )
 
 //go:embed plugin_skill.md
@@ -316,6 +317,35 @@ func (s *Server) handleInstallPluginToChannel(w http.ResponseWriter, r *http.Req
 		"plugin_name":    plugin.Name,
 		"plugin_version": plugin.Version,
 	})
+}
+
+// POST /api/webhook-plugins/debug
+// Body: {"script": "...", "webhook_url": "https://...", "mock_message": {...}}
+func (s *Server) handleDebugPlugin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Script      string `json:"script"`
+		WebhookURL  string `json:"webhook_url"`
+		MockMessage struct {
+			Sender  string `json:"sender"`
+			Content string `json:"content"`
+			MsgType string `json:"msg_type"`
+		} `json:"mock_message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Script == "" {
+		jsonError(w, "script required", http.StatusBadRequest)
+		return
+	}
+
+	msg := sink.MockPayload(
+		req.MockMessage.Sender,
+		req.MockMessage.Content,
+		req.MockMessage.MsgType,
+	)
+
+	result := sink.DebugScript(req.Script, msg, req.WebhookURL)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }
 
 // --- Helpers ---
