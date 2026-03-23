@@ -133,7 +133,9 @@ func appHasCommand(app *database.App, commandName string) bool {
 	}
 
 	for _, cmd := range commands {
-		if strings.EqualFold(cmd.Name, commandName) {
+		// Compare with or without leading "/" prefix
+		name := strings.TrimPrefix(strings.ToLower(cmd.Name), "/")
+		if name == strings.ToLower(commandName) {
 			return true
 		}
 	}

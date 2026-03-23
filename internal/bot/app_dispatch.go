@@ -19,6 +19,7 @@ func (m *Manager) deliverToApps(inst *Instance, msg provider.InboundMessage, p p
 	}()
 
 	content := p.content
+	slog.Debug("deliverToApps", "bot", inst.DBID, "content", content, "msg_type", p.msgType)
 
 	// Check for slash command: /command args or @command args
 	if m.tryDeliverCommand(inst, msg, p, content) {
@@ -66,7 +67,7 @@ func (m *Manager) tryDeliverCommand(inst *Instance, msg provider.InboundMessage,
 	}
 
 	event := appdelivery.NewEvent("command", map[string]any{
-		"command": command,
+		"command": "/" + command,
 		"text":    args,
 		"sender":  map[string]any{"id": msg.Sender, "name": msg.Sender},
 		"group":   groupInfo(msg),
