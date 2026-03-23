@@ -11,6 +11,7 @@ type WebhookLog struct {
 	ChannelID      string          `json:"channel_id"`
 	MessageID      *int64          `json:"message_id,omitempty"`
 	PluginID       string          `json:"plugin_id,omitempty"`
+	PluginVersion  string          `json:"plugin_version,omitempty"`
 	Status         string          `json:"status"` // pending/requesting/success/failed/skipped/error
 	RequestURL     string          `json:"request_url,omitempty"`
 	RequestMethod  string          `json:"request_method,omitempty"`
@@ -26,9 +27,9 @@ type WebhookLog struct {
 
 func (db *DB) CreateWebhookLog(log *WebhookLog) (int64, error) {
 	var id int64
-	err := db.QueryRow(`INSERT INTO webhook_logs (bot_id, channel_id, message_id, plugin_id, status)
-		VALUES ($1, $2, $3, $4, 'pending') RETURNING id`,
-		log.BotID, log.ChannelID, log.MessageID, log.PluginID,
+	err := db.QueryRow(`INSERT INTO webhook_logs (bot_id, channel_id, message_id, plugin_id, plugin_version, status)
+		VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id`,
+		log.BotID, log.ChannelID, log.MessageID, log.PluginID, log.PluginVersion,
 	).Scan(&id)
 	return id, err
 }
@@ -56,7 +57,7 @@ func (db *DB) ListWebhookLogs(botID, channelID string, limit int) ([]WebhookLog,
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	query := `SELECT id, bot_id, channel_id, message_id, plugin_id, status,
+	query := `SELECT id, bot_id, channel_id, message_id, plugin_id, plugin_version, status,
 		request_url, request_method, request_body,
 		response_status, response_body,
 		script_error, replies, duration_ms,
@@ -77,7 +78,7 @@ func (db *DB) ListWebhookLogs(botID, channelID string, limit int) ([]WebhookLog,
 	var logs []WebhookLog
 	for rows.Next() {
 		var l WebhookLog
-		if err := rows.Scan(&l.ID, &l.BotID, &l.ChannelID, &l.MessageID, &l.PluginID, &l.Status,
+		if err := rows.Scan(&l.ID, &l.BotID, &l.ChannelID, &l.MessageID, &l.PluginID, &l.PluginVersion, &l.Status,
 			&l.RequestURL, &l.RequestMethod, &l.RequestBody,
 			&l.ResponseStatus, &l.ResponseBody,
 			&l.ScriptError, &l.Replies, &l.DurationMs,

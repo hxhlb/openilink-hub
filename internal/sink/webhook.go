@@ -281,8 +281,9 @@ func (s *Webhook) Handle(d Delivery) {
 	if d.SeqID > 0 {
 		msgID = &d.SeqID
 	}
+	pluginVersion := ""
 	logID, _ := s.DB.CreateWebhookLog(&database.WebhookLog{
-		BotID: d.BotDBID, ChannelID: d.Channel.ID, MessageID: msgID, PluginID: cfg.PluginID,
+		BotID: d.BotDBID, ChannelID: d.Channel.ID, MessageID: msgID, PluginID: cfg.PluginID, PluginVersion: pluginVersion,
 	})
 
 	msg := buildPayload(d)
@@ -309,7 +310,12 @@ func (s *Webhook) Handle(d Delivery) {
 			slog.Warn("webhook plugin not approved", "channel", d.Channel.ID, "plugin", cfg.PluginID, "status", plugin.Status)
 		} else {
 			script = plugin.Script
+			pluginVersion = plugin.Version
 		}
+	}
+	// Update log with resolved version
+	if pluginVersion != "" {
+		s.DB.Exec("UPDATE webhook_logs SET plugin_version = $1 WHERE id = $2", pluginVersion, logID)
 	}
 
 	// Step 1: Run script (onRequest)

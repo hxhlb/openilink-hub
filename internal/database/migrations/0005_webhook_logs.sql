@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
     channel_id      TEXT NOT NULL,
     message_id      BIGINT,
     plugin_id       TEXT NOT NULL DEFAULT '',
+    plugin_version  TEXT NOT NULL DEFAULT '',
     status          TEXT NOT NULL DEFAULT 'pending',  -- pending/requesting/success/failed/skipped/error
 
     -- Request (filled after onRequest)
