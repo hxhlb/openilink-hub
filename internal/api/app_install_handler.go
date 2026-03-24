@@ -17,7 +17,7 @@ import (
 
 // POST /api/apps/{id}/install
 func (s *Server) handleInstallApp(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}

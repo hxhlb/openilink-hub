@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	_ "embed"
 	"encoding/json"
 	"net/http"
@@ -271,14 +270,28 @@ func (s *Server) requireApp(w http.ResponseWriter, r *http.Request) *database.Ap
 
 	app, err := s.DB.GetApp(appID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			jsonError(w, "not found", http.StatusNotFound)
-		} else {
-			jsonError(w, "not found", http.StatusNotFound)
-		}
+		jsonError(w, "not found", http.StatusNotFound)
 		return nil
 	}
 	if app.OwnerID != userID {
+		jsonError(w, "not found", http.StatusNotFound)
+		return nil
+	}
+	return app
+}
+
+// requireAppForInstall loads an app that the user can install:
+// either they own it, or it's publicly listed.
+func (s *Server) requireAppForInstall(w http.ResponseWriter, r *http.Request) *database.App {
+	userID := auth.UserIDFromContext(r.Context())
+	appID := r.PathValue("id")
+
+	app, err := s.DB.GetApp(appID)
+	if err != nil {
+		jsonError(w, "not found", http.StatusNotFound)
+		return nil
+	}
+	if app.OwnerID != userID && !app.Listed {
 		jsonError(w, "not found", http.StatusNotFound)
 		return nil
 	}
