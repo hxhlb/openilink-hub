@@ -59,6 +59,7 @@ export function Layout() {
     if (path === "/dashboard")
       return location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/bot/");
     if (path === "/dashboard/apps") return location.pathname.startsWith("/dashboard/apps");
+    if (path === "/dashboard/admin/apps") return location.pathname === "/dashboard/admin/apps";
     return location.pathname === path;
   }
 
@@ -179,6 +180,14 @@ export function Layout() {
                         <Link to="/dashboard/admin/config">
                           <Settings />
                           <span>系统配置</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={isActive("/dashboard/admin/apps")} tooltip="App 管理">
+                        <Link to="/dashboard/admin/apps">
+                          <Blocks />
+                          <span>App 管理</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

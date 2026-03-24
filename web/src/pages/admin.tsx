@@ -3,7 +3,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { api } from "../lib/api";
-import { Save, Trash2 } from "lucide-react";
+import { Save, Trash2, Blocks } from "lucide-react";
 
 const providerLabels: Record<string, string> = { github: "GitHub", linuxdo: "LinuxDo" };
 const providerCallbackHelp: Record<string, string> = {
@@ -11,7 +11,7 @@ const providerCallbackHelp: Record<string, string> = {
   linuxdo: "在 connect.linux.do 中创建应用",
 };
 
-export function AdminPage({ tab: routeTab }: { tab?: "dashboard" | "users" | "config" }) {
+export function AdminPage({ tab: routeTab }: { tab?: "dashboard" | "users" | "config" | "apps" }) {
   const activeTab = routeTab || "dashboard";
 
   return (
@@ -41,6 +41,15 @@ export function AdminPage({ tab: routeTab }: { tab?: "dashboard" | "users" | "co
             <p className="text-xs text-muted-foreground mt-0.5">服务状态、AI、OAuth</p>
           </div>
           <ConfigTab />
+        </>
+      )}
+      {activeTab === "apps" && (
+        <>
+          <div>
+            <h1 className="text-lg font-semibold">App 管理</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">管理所有 App 的上架状态</p>
+          </div>
+          <AdminAppsTab />
         </>
       )}
     </div>
@@ -384,6 +393,65 @@ function OAuthProviderForm({ name, label, config, callbackURL, help, onSaved, on
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving}><Save className="w-3.5 h-3.5 mr-1" /> 保存</Button>
       </div>
+    </div>
+  );
+}
+
+// ==================== Admin Apps ====================
+
+function AdminAppsTab() {
+  const [apps, setApps] = useState<any[]>([]);
+  const [error, setError] = useState("");
+
+  async function load() {
+    try { setApps(await api.adminListApps() || []); } catch {}
+  }
+  useEffect(() => { load(); }, []);
+
+  async function toggleListed(app: any) {
+    setError("");
+    try {
+      await api.setAppListed(app.id, !app.listed);
+      load();
+    } catch (err: any) { setError(err.message); }
+  }
+
+  return (
+    <div className="space-y-3">
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <div className="space-y-1">
+        {apps.map((app) => (
+          <div key={app.id} className="flex items-center justify-between p-2.5 rounded-lg border bg-card">
+            <div className="flex items-center gap-3">
+              {app.icon ? (
+                <img src={app.icon} alt="" className="w-8 h-8 rounded-lg object-cover" />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
+                  <Blocks className="w-4 h-4 text-muted-foreground" />
+                </div>
+              )}
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium">{app.name}</span>
+                  <span className="text-xs text-muted-foreground font-mono">{app.slug}</span>
+                </div>
+                {app.owner_name && (
+                  <p className="text-xs text-muted-foreground">by {app.owner_name}</p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => toggleListed(app)}
+              className={`text-xs px-2 py-0.5 rounded cursor-pointer ${app.listed ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}
+            >
+              {app.listed ? "已上架" : "未上架"}
+            </button>
+          </div>
+        ))}
+      </div>
+      {apps.length === 0 && (
+        <p className="text-center text-sm text-muted-foreground py-8">暂无 App</p>
+      )}
     </div>
   );
 }
