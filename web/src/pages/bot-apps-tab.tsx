@@ -51,8 +51,6 @@ export function BotAppsTab({ botId }: { botId: string }) {
     } catch {}
   }
 
-  const installedAppIds = new Set(installations.map((i) => i.app_id));
-
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
@@ -169,7 +167,6 @@ export function BotAppsTab({ botId }: { botId: string }) {
             )}
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {apps.map((app) => {
-                const installed = installedAppIds.has(app.id);
                 return (
                   <div
                     key={app.id}
@@ -185,21 +182,15 @@ export function BotAppsTab({ botId }: { botId: string }) {
                         )}
                       </div>
                     </div>
-                    {installed ? (
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        已安装
-                      </Badge>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={installing === app.id}
-                        onClick={() => handleInstall(app.id, app.slug)}
-                        className="shrink-0"
-                      >
-                        {installing === app.id ? "..." : "安装"}
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={installing === app.id}
+                      onClick={() => handleInstall(app.id, app.slug)}
+                      className="shrink-0"
+                    >
+                      {installing === app.id ? "..." : "安装"}
+                    </Button>
                   </div>
                 );
               })}
