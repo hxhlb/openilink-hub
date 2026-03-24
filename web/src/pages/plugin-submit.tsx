@@ -73,7 +73,7 @@ function onRequest(ctx) {
               <Input value={url} onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://github.com/user/repo/blob/main/plugin.js"
                 className="h-8 text-xs font-mono" />
-              <p className="text-[10px] text-muted-foreground">自动拉取脚本并固定 commit hash，确保审核的代码就是运行的代码。</p>
+              <p className="text-xs text-muted-foreground">自动拉取脚本并固定 commit hash，确保审核的代码就是运行的代码。</p>
             </>
           ) : (
             <>
@@ -81,7 +81,7 @@ function onRequest(ctx) {
                 placeholder={templateScript}
                 rows={16}
                 className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-[11px] font-mono placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring resize-none" />
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 使用 <code className="bg-secondary px-1 rounded">{"// ==WebhookPlugin=="}</code> 格式声明元数据。
                 <a href="/api/webhook-plugins/skill.md" target="_blank" className="text-primary hover:underline ml-1">查看完整规范</a>
               </p>
@@ -99,7 +99,7 @@ function onRequest(ctx) {
       {/* Quick reference */}
       <Card className="space-y-2">
         <h3 className="text-xs font-medium">快速参考</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <div className="p-2 rounded border bg-background">
             <p className="font-medium mb-1">ctx.msg（消息）</p>
             <p className="text-muted-foreground">.sender .content .msg_type .channel_id .bot_id .timestamp .items[]</p>
@@ -113,7 +113,7 @@ function onRequest(ctx) {
             <p className="text-muted-foreground">reply(text) skip() JSON.parse/stringify</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span><Shield className="w-3 h-3 inline" /> 5s 超时</span>
           <span>栈深 64</span>
           <span>禁止 eval/require</span>

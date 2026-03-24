@@ -68,10 +68,10 @@ export function ReviewCard({ plugin, onRefresh }: { plugin: any; onRefresh: () =
           <div className="flex items-center gap-2 flex-wrap">
             {icon && <span className="text-lg">{icon}</span>}
             <span className="font-semibold text-sm">{name}</span>
-            <span className="text-[10px] text-muted-foreground">v{plugin.version}</span>
+            <span className="text-xs text-muted-foreground">v{plugin.version}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-          <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
             <span>作者: {author || "anonymous"}</span>
             {plugin.submitter_name && <span>拥有者: {plugin.submitter_name}</span>}
             {plugin.github_url && (
@@ -119,9 +119,9 @@ export function ReviewCard({ plugin, onRefresh }: { plugin: any; onRefresh: () =
       <div className="rounded-lg border bg-card">
         <div className="px-3 py-2 border-b flex items-center justify-between">
           <p className="text-xs font-medium">源码</p>
-          <span className="text-[10px] text-muted-foreground">{scriptText.split("\n").length} 行</span>
+          <span className="text-xs text-muted-foreground">{scriptText.split("\n").length} 行</span>
         </div>
-        <pre className="p-3 text-[10px] font-mono overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap">
+        <pre className="p-3 text-xs font-mono overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap">
           {scriptText || "无脚本"}
         </pre>
       </div>

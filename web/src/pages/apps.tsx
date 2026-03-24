@@ -102,7 +102,7 @@ export function AppsPage() {
             />
             <div className="flex items-center justify-between">
               <div>
-                {error && <span className="text-[10px] text-destructive">{error}</span>}
+                {error && <span className="text-xs text-destructive">{error}</span>}
               </div>
               <Button type="submit" size="sm" disabled={saving}>{saving ? "..." : "创建"}</Button>
             </div>
@@ -134,7 +134,7 @@ export function AppsPage() {
           </div>
           <div className="flex items-center gap-2">
             {app.commands?.length > 0 && (
-              <span className="text-[10px] text-muted-foreground">{app.commands.length} 个命令</span>
+              <span className="text-xs text-muted-foreground">{app.commands.length} 个命令</span>
             )}
             <Badge variant={app.status === "active" ? "default" : "outline"}>
               {app.status === "active" ? "启用" : app.status || "草稿"}

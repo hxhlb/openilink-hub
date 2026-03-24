@@ -129,26 +129,26 @@ function OverviewTab({ channel, botId, onRefresh }: { channel: any; botId: strin
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {cards.map((c) => (
           <div key={c.label} className="p-3 rounded-lg border bg-card cursor-pointer hover:border-primary/50" onClick={c.action}>
-            <p className="text-[10px] text-muted-foreground">{c.label}</p>
+            <p className="text-xs text-muted-foreground">{c.label}</p>
             <p className="text-sm font-medium mt-0.5">{c.value}</p>
           </div>
         ))}
         <CopyCard label="API Key" value={channel.api_key} />
         {channel.ai_config?.enabled && (
           <div className="p-3 rounded-lg border bg-card">
-            <p className="text-[10px] text-muted-foreground">AI 回复</p>
+            <p className="text-xs text-muted-foreground">AI 回复</p>
             <p className="text-sm font-medium mt-0.5 flex items-center gap-1"><Bot className="w-3 h-3" /> {channel.ai_config.source === "builtin" ? "内置" : "自定义"}</p>
           </div>
         )}
         {channel.webhook_config?.url && (
           <div className="p-3 rounded-lg border bg-card">
-            <p className="text-[10px] text-muted-foreground">Webhook</p>
+            <p className="text-xs text-muted-foreground">Webhook</p>
             <p className="text-sm font-mono mt-0.5 truncate">{channel.webhook_config.url}</p>
           </div>
         )}
         {pluginInfo && (
           <div className="p-3 rounded-lg border bg-card">
-            <p className="text-[10px] text-muted-foreground">插件</p>
+            <p className="text-xs text-muted-foreground">插件</p>
             <p className="text-sm font-medium mt-0.5">{pluginInfo.icon} {pluginInfo.name} v{pluginInfo.version}</p>
           </div>
         )}
@@ -182,7 +182,7 @@ function CopyCard({ label, value }: { label: string; value: string }) {
   }
   return (
     <div className="p-3 rounded-lg border bg-card cursor-pointer hover:border-primary/50" onClick={copy}>
-      <p className="text-[10px] text-muted-foreground">{label} {copied && <Check className="w-3 h-3 inline text-primary" />}</p>
+      <p className="text-xs text-muted-foreground">{label} {copied && <Check className="w-3 h-3 inline text-primary" />}</p>
       <p className="text-xs font-mono mt-0.5 truncate">{value}</p>
     </div>
   );
@@ -208,13 +208,13 @@ function ConnectTab({ channel }: { channel: any }) {
 
         <div>
           <p className="font-medium text-foreground mt-3 mb-1">WebSocket 连接</p>
-          <pre className="bg-background p-2 rounded overflow-x-auto text-[10px]">{`ws://${location.host}/api/v1/channels/connect?key=API_KEY`}</pre>
+          <pre className="bg-background p-2 rounded overflow-x-auto text-xs">{`ws://${location.host}/api/v1/channels/connect?key=API_KEY`}</pre>
           <p className="mt-1">连接后自动收到 init 消息，收到新消息时推送 message 事件。</p>
         </div>
 
         <div>
           <p className="font-medium text-foreground mt-3 mb-1">HTTP API</p>
-          <pre className="bg-background p-2 rounded overflow-x-auto text-[10px]">{`# 拉取消息
+          <pre className="bg-background p-2 rounded overflow-x-auto text-xs">{`# 拉取消息
 GET /api/v1/channels/messages?key=KEY&limit=50
 
 # 发送消息
@@ -234,7 +234,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-muted-foreground w-16 shrink-0">{label}</span>
-      <code className="flex-1 text-[10px] font-mono bg-card border rounded px-2 py-1 truncate select-all">{value}</code>
+      <code className="flex-1 text-xs font-mono bg-card border rounded px-2 py-1 truncate select-all">{value}</code>
       <button onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="cursor-pointer text-muted-foreground hover:text-foreground shrink-0">
         {copied ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
       </button>
@@ -305,10 +305,10 @@ function WebhookTab({ channel, botId, onRefresh }: { channel: any; botId: string
 
       {/* Auth */}
       <div>
-        <p className="text-[10px] text-muted-foreground mb-1">认证方式</p>
+        <p className="text-xs text-muted-foreground mb-1">认证方式</p>
         <div className="flex gap-1">
           {["", "bearer", "header", "hmac"].map((t) => (
-            <button key={t} onClick={() => setAuthType(t)} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${authType === t ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+            <button key={t} onClick={() => setAuthType(t)} className={`px-2 py-0.5 text-xs rounded cursor-pointer ${authType === t ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
               {t || "无"}
             </button>
           ))}
@@ -325,10 +325,10 @@ function WebhookTab({ channel, botId, onRefresh }: { channel: any; botId: string
 
       {/* Script source */}
       <div>
-        <p className="text-[10px] text-muted-foreground mb-1">脚本来源</p>
+        <p className="text-xs text-muted-foreground mb-1">脚本来源</p>
         <div className="flex gap-1">
-          <button onClick={() => setScriptMode("plugin")} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${scriptMode === "plugin" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>插件市场</button>
-          <button onClick={() => setScriptMode("manual")} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${scriptMode === "manual" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>手动脚本</button>
+          <button onClick={() => setScriptMode("plugin")} className={`px-2 py-0.5 text-xs rounded cursor-pointer ${scriptMode === "plugin" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>插件市场</button>
+          <button onClick={() => setScriptMode("manual")} className={`px-2 py-0.5 text-xs rounded cursor-pointer ${scriptMode === "manual" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>手动脚本</button>
         </div>
       </div>
 
@@ -342,11 +342,11 @@ function WebhookTab({ channel, botId, onRefresh }: { channel: any; botId: string
                     <div className="flex items-center gap-1.5">
                       {pluginInfo.icon && <span className="text-base">{pluginInfo.icon}</span>}
                       <span className="text-xs font-medium">{pluginInfo.name}</span>
-                      <span className="text-[10px] text-muted-foreground">v{pluginInfo.version}</span>
-                      {pluginInfo.license && <span className="text-[10px] text-muted-foreground">{pluginInfo.license}</span>}
+                      <span className="text-xs text-muted-foreground">v{pluginInfo.version}</span>
+                      {pluginInfo.license && <span className="text-xs text-muted-foreground">{pluginInfo.license}</span>}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{pluginInfo.description}</p>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-0.5">{pluginInfo.description}</p>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                       <span>by {pluginInfo.author || "anonymous"}</span>
                       <span>{pluginInfo.install_count} 安装</span>
                       {pluginInfo.namespace && <span className="font-mono">{pluginInfo.namespace}</span>}
@@ -354,19 +354,19 @@ function WebhookTab({ channel, botId, onRefresh }: { channel: any; botId: string
                   </div>
                 </div>
                 {/* Permissions summary */}
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>@grant: {pluginInfo.grant_perms || "none"}</span>
                   <span>@match: {pluginInfo.match_types || "*"}</span>
                   {pluginInfo.connect_domains && pluginInfo.connect_domains !== "*" && <span>@connect: {pluginInfo.connect_domains}</span>}
                 </div>
-                {pluginInfo.changelog && <p className="text-[10px] text-muted-foreground">更新: {pluginInfo.changelog}</p>}
+                {pluginInfo.changelog && <p className="text-xs text-muted-foreground">更新: {pluginInfo.changelog}</p>}
               </div>
               <div className="border-t px-3 py-1.5 flex items-center gap-2">
-                <a href={`/dashboard/webhook-plugins/debug?plugin=${pluginId}`} className="text-[10px] text-primary hover:underline">调试</a>
-                {pluginInfo.github_url && <a href={pluginInfo.github_url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline">GitHub</a>}
+                <a href={`/dashboard/webhook-plugins/debug?plugin=${pluginId}`} className="text-xs text-primary hover:underline">调试</a>
+                {pluginInfo.github_url && <a href={pluginInfo.github_url} target="_blank" rel="noopener" className="text-xs text-primary hover:underline">GitHub</a>}
                 <div className="ml-auto flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setShowPicker(true)}>更换</Button>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive" onClick={() => { setPluginId(""); setVersionId(""); setPluginInfo(null); setScriptMode("manual"); }}>卸载</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setShowPicker(true)}>更换</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive" onClick={() => { setPluginId(""); setVersionId(""); setPluginInfo(null); setScriptMode("manual"); }}>卸载</Button>
                 </div>
               </div>
             </div>
@@ -377,14 +377,14 @@ function WebhookTab({ channel, botId, onRefresh }: { channel: any; botId: string
           )}
           {showPicker && (
             <div className="border rounded p-2 space-y-1 max-h-48 overflow-y-auto bg-card">
-              {plugins.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-2">暂无可用插件</p>}
+              {plugins.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">暂无可用插件</p>}
               {plugins.map((p) => (
                 <button key={p.id} onClick={() => installPlugin(p.id)} className="w-full text-left p-1.5 rounded hover:bg-secondary cursor-pointer text-xs flex items-center justify-between">
                   <span>{p.icon} {p.name} <span className="text-muted-foreground">v{p.version}</span></span>
-                  <span className="text-[10px] text-muted-foreground">{p.install_count} 安装</span>
+                  <span className="text-xs text-muted-foreground">{p.install_count} 安装</span>
                 </button>
               ))}
-              <button onClick={() => setShowPicker(false)} className="w-full text-center text-[10px] text-muted-foreground hover:text-primary cursor-pointer py-1">取消</button>
+              <button onClick={() => setShowPicker(false)} className="w-full text-center text-xs text-muted-foreground hover:text-primary cursor-pointer py-1">取消</button>
             </div>
           )}
         </div>
@@ -401,7 +401,7 @@ function WebhookTab({ channel, botId, onRefresh }: { channel: any; botId: string
       )}
 
       <div className="flex items-center justify-between">
-        {error && <span className="text-[10px] text-destructive">{error}</span>}
+        {error && <span className="text-xs text-destructive">{error}</span>}
         <div className="ml-auto"><Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "..." : "保存"}</Button></div>
       </div>
     </div>
@@ -442,8 +442,8 @@ function AITab({ channel, botId, onRefresh }: { channel: any; botId: string; onR
       {enabled && (
         <>
           <div className="flex gap-1">
-            <button onClick={() => setSource("builtin")} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${source === "builtin" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>内置（全局配置）</button>
-            <button onClick={() => setSource("custom")} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${source === "custom" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>自定义</button>
+            <button onClick={() => setSource("builtin")} className={`px-2 py-0.5 text-xs rounded cursor-pointer ${source === "builtin" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>内置（全局配置）</button>
+            <button onClick={() => setSource("custom")} className={`px-2 py-0.5 text-xs rounded cursor-pointer ${source === "custom" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>自定义</button>
           </div>
           {source === "custom" && (
             <div className="space-y-2">
@@ -462,7 +462,7 @@ function AITab({ channel, botId, onRefresh }: { channel: any; botId: string; onR
             className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-[11px] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring resize-none"
           />
           <div className="flex items-center gap-2">
-            <label className="text-[10px] text-muted-foreground">上下文消息数</label>
+            <label className="text-xs text-muted-foreground">上下文消息数</label>
             <Input type="number" value={maxHistory} onChange={(e) => setMaxHistory(parseInt(e.target.value) || 20)} className="h-7 text-xs w-20" min={1} max={100} />
           </div>
         </>
@@ -505,15 +505,15 @@ function FilterTab({ channel, botId, onRefresh }: { channel: any; botId: string;
       <p className="text-xs text-muted-foreground">留空表示不过滤（接收所有消息）。多个值用逗号分隔。</p>
       <div className="space-y-2">
         <div>
-          <label className="text-[10px] text-muted-foreground">用户 ID 白名单</label>
+          <label className="text-xs text-muted-foreground">用户 ID 白名单</label>
           <Input value={userIds} onChange={(e) => setUserIds(e.target.value)} placeholder="user1@wx, user2@wx" className="h-7 text-[11px] font-mono" />
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground">关键词匹配</label>
+          <label className="text-xs text-muted-foreground">关键词匹配</label>
           <Input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="help, urgent" className="h-7 text-[11px] font-mono" />
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground">消息类型</label>
+          <label className="text-xs text-muted-foreground">消息类型</label>
           <Input value={msgTypes} onChange={(e) => setMsgTypes(e.target.value)} placeholder="text, image, voice, video, file" className="h-7 text-[11px] font-mono" />
         </div>
       </div>
@@ -554,13 +554,13 @@ function LiveTab({ channel }: { channel: any }) {
         <Radio className={`w-3 h-3 ${status === "connected" ? "text-primary" : "text-muted-foreground"}`} />
         <span className="text-xs">{status === "connected" ? "已连接" : status === "connecting" ? "连接中..." : "已断开"}</span>
         {logs.length > 0 && (
-          <button onClick={() => setLogs([])} className="text-[10px] text-muted-foreground hover:text-primary cursor-pointer ml-auto">清空</button>
+          <button onClick={() => setLogs([])} className="text-xs text-muted-foreground hover:text-primary cursor-pointer ml-auto">清空</button>
         )}
       </div>
       <div className="border rounded-lg bg-card p-2 max-h-96 overflow-y-auto space-y-1">
-        {logs.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-4">等待消息...</p>}
+        {logs.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">等待消息...</p>}
         {logs.map((log, i) => (
-          <div key={i} className="text-[10px] font-mono">
+          <div key={i} className="text-xs font-mono">
             <span className="text-muted-foreground">{log.time}</span>{" "}
             <span className="text-primary">{log.type}</span>
             <pre className="text-muted-foreground whitespace-pre-wrap ml-4">{log.data}</pre>
@@ -596,7 +596,7 @@ function WebhookLogsTab({ channel, botId }: { channel: any; botId: string }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{logs.length} 条日志（自动刷新）</p>
-        <button onClick={load} className="text-[10px] text-primary hover:underline cursor-pointer">刷新</button>
+        <button onClick={load} className="text-xs text-primary hover:underline cursor-pointer">刷新</button>
       </div>
 
       {logs.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">暂无 Webhook 日志</p>}
@@ -616,12 +616,12 @@ function WebhookLogsTab({ channel, botId }: { channel: any; botId: string }) {
                 <span className="text-xs text-muted-foreground truncate flex-1">
                   {log.request_method} {log.request_url || "—"}
                 </span>
-                {log.duration_ms > 0 && <span className="text-[10px] text-muted-foreground">{log.duration_ms}ms</span>}
-                <span className="text-[10px] text-muted-foreground">{new Date(log.created_at * 1000).toLocaleTimeString()}</span>
+                {log.duration_ms > 0 && <span className="text-xs text-muted-foreground">{log.duration_ms}ms</span>}
+                <span className="text-xs text-muted-foreground">{new Date(log.created_at * 1000).toLocaleTimeString()}</span>
               </button>
 
               {isOpen && (
-                <div className="border-t px-3 py-2 space-y-2 text-[10px]">
+                <div className="border-t px-3 py-2 space-y-2 text-xs">
                   {log.plugin_id && <p className="text-muted-foreground">插件: {log.plugin_id}</p>}
 
                   {log.request_body && (

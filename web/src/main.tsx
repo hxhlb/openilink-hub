@@ -15,10 +15,12 @@ import { PluginDebugPage } from "./pages/plugin-debug";
 import { AppsPage } from "./pages/apps";
 import { AppDetailPage } from "./pages/app-detail";
 import { ThemeProvider } from "./lib/theme";
+import { TooltipProvider } from "./components/ui/tooltip";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider>
+    <TooltipProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -47,6 +49,7 @@ createRoot(document.getElementById("root")!).render(
         </Route>
       </Routes>
     </BrowserRouter>
+    </TooltipProvider>
     </ThemeProvider>
   </StrictMode>
 );

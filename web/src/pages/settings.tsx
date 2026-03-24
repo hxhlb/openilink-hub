@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Card } from "../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { api } from "../lib/api";
 import { Link2, Unlink, Trash2, KeyRound, Plus, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme, type Theme } from "../lib/theme";
@@ -63,33 +63,41 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Account info */}
-      <Card className="space-y-3">
-        <h3 className="text-sm font-medium">外观</h3>
-        <div className="flex gap-2" role="group" aria-label="主题选择">
-          {themeOptions.map(({ value, label, icon }) => (
-            <Button
-              key={value}
-              variant={theme === value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTheme(value)}
-              aria-pressed={theme === value}
-              aria-label={label}
-            >
-              {icon}
-              {label}
-            </Button>
-          ))}
-        </div>
+      {/* 外观 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>外观</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2" role="group" aria-label="主题选择">
+            {themeOptions.map(({ value, label, icon }) => (
+              <Button
+                key={value}
+                variant={theme === value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme(value)}
+                aria-pressed={theme === value}
+                aria-label={label}
+              >
+                {icon}
+                {label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
       </Card>
 
-      <Card className="space-y-3">
-        <h3 className="text-sm font-medium">账号信息</h3>
-        <div className="text-sm space-y-1">
-          <p><span className="text-muted-foreground">用户名：</span>{user.username}</p>
-          <p><span className="text-muted-foreground">显示名：</span>{user.display_name}</p>
-          <p><span className="text-muted-foreground">角色：</span>{user.role === "superadmin" ? "超级管理员" : user.role === "admin" ? "管理员" : "成员"}</p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>账号信息</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-1 text-sm">
+            <p><span className="text-muted-foreground">用户名：</span>{user.username}</p>
+            <p><span className="text-muted-foreground">显示名：</span>{user.display_name}</p>
+            <p><span className="text-muted-foreground">角色：</span>{user.role === "superadmin" ? "超级管理员" : user.role === "admin" ? "管理员" : "成员"}</p>
+          </div>
+        </CardContent>
       </Card>
 
       <ChangePasswordSection />
@@ -97,37 +105,41 @@ export function SettingsPage() {
 
       {/* OAuth binding */}
       {oauthProviders.length > 0 && (
-        <Card className="space-y-3">
-          <h3 className="text-sm font-medium">第三方账号绑定</h3>
-          <div className="space-y-2">
-            {oauthProviders.map((provider) => {
-              const account = oauthAccounts.find((a) => a.provider === provider);
-              const linked = !!account;
-              return (
-                <div key={provider} className="flex items-center justify-between p-3 rounded-lg border bg-background">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                      <span className="text-xs font-medium">{(providerLabels[provider] || provider).charAt(0).toUpperCase()}</span>
+        <Card>
+          <CardHeader>
+            <CardTitle>第三方账号绑定</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              {oauthProviders.map((provider) => {
+                const account = oauthAccounts.find((a) => a.provider === provider);
+                const linked = !!account;
+                return (
+                  <div key={provider} className="flex items-center justify-between p-3 rounded-lg border bg-background">
+                    <div className="flex items-center gap-3">
+                      <div className="size-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                        <span className="text-xs font-medium">{(providerLabels[provider] || provider).charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{providerLabels[provider] || provider}</p>
+                        <p className="text-xs text-muted-foreground">{linked ? `已绑定：${account.username}` : "未绑定"}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{providerLabels[provider] || provider}</p>
-                      <p className="text-xs text-muted-foreground">{linked ? `已绑定：${account.username}` : "未绑定"}</p>
-                    </div>
+                    {linked ? (
+                      <Button variant="ghost" size="sm" onClick={async () => {
+                        if (!confirm(`解绑 ${providerLabels[provider]}？`)) return;
+                        try { await api.unlinkOAuth(provider); load(); } catch (e: any) { alert(e.message); }
+                      }}><Unlink className="w-3.5 h-3.5 mr-1" /> 解绑</Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => { window.location.href = `/api/me/linked-accounts/${provider}/bind`; }}>
+                        <Link2 className="w-3.5 h-3.5 mr-1" /> 绑定
+                      </Button>
+                    )}
                   </div>
-                  {linked ? (
-                    <Button variant="ghost" size="sm" onClick={async () => {
-                      if (!confirm(`解绑 ${providerLabels[provider]}？`)) return;
-                      try { await api.unlinkOAuth(provider); load(); } catch (e: any) { alert(e.message); }
-                    }}><Unlink className="w-3.5 h-3.5 mr-1" /> 解绑</Button>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={() => { window.location.href = `/api/me/linked-accounts/${provider}/bind`; }}>
-                      <Link2 className="w-3.5 h-3.5 mr-1" /> 绑定
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </CardContent>
         </Card>
       )}
     </div>
@@ -157,20 +169,24 @@ function ChangePasswordSection() {
   }
 
   return (
-    <Card className="space-y-3">
-      <h3 className="text-sm font-medium">修改密码</h3>
-      <form onSubmit={handleSubmit} className="space-y-2">
-        <Input type="password" placeholder="当前密码" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} className="h-8 text-xs" />
-        <Input type="password" placeholder="新密码（至少 8 位）" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="h-8 text-xs" />
-        <Input type="password" placeholder="确认新密码" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="h-8 text-xs" />
-        <div className="flex items-center justify-between">
-          <div>
-            {error && <span className="text-[10px] text-destructive">{error}</span>}
-            {success && <span className="text-[10px] text-primary">{success}</span>}
+    <Card>
+      <CardHeader>
+        <CardTitle>修改密码</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+          <Input type="password" placeholder="当前密码" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} />
+          <Input type="password" placeholder="新密码（至少 8 位）" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} />
+          <Input type="password" placeholder="确认新密码" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} />
+          <div className="flex items-center justify-between">
+            <div>
+              {error && <span className="text-xs text-destructive">{error}</span>}
+              {success && <span className="text-xs text-primary">{success}</span>}
+            </div>
+            <Button type="submit" size="sm" disabled={saving}>{saving ? "..." : "修改密码"}</Button>
           </div>
-          <Button type="submit" size="sm" disabled={saving}>{saving ? "..." : "修改密码"}</Button>
-        </div>
-      </form>
+        </form>
+      </CardContent>
     </Card>
   );
 }
@@ -209,36 +225,42 @@ function PasskeySection() {
   }
 
   return (
-    <Card className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Passkey</h3>
-        <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleAdd} disabled={adding}>
-          <Plus className="w-3 h-3 mr-1" /> {adding ? "注册中..." : "添加 Passkey"}
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">使用指纹、Face ID 或安全密钥登录，无需密码。</p>
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
-      {passkeys.length === 0 ? (
-        <p className="text-[10px] text-muted-foreground">暂未绑定任何 Passkey</p>
-      ) : (
-        <div className="space-y-1">
-          {passkeys.map((pk) => (
-            <div key={pk.id} className="flex items-center justify-between p-2 rounded-lg border bg-background">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <p className="text-xs font-mono">{pk.id.slice(0, 16)}...</p>
-                  <p className="text-[10px] text-muted-foreground">{new Date(pk.created_at * 1000).toLocaleDateString()}</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" className="h-6" onClick={async () => {
-                if (!confirm("删除此 Passkey？")) return;
-                try { await api.deletePasskey(pk.id); load(); } catch {}
-              }}><Trash2 className="w-3 h-3 text-destructive" /></Button>
-            </div>
-          ))}
+    <Card>
+      <CardHeader>
+        <CardTitle>Passkey</CardTitle>
+        <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+          <Button variant="outline" size="sm" onClick={handleAdd} disabled={adding}>
+            <Plus /> {adding ? "注册中..." : "添加 Passkey"}
+          </Button>
         </div>
-      )}
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">使用指纹、Face ID 或安全密钥登录，无需密码。</p>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          {passkeys.length === 0 ? (
+            <p className="text-xs text-muted-foreground">暂未绑定任何 Passkey</p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {passkeys.map((pk) => (
+                <div key={pk.id} className="flex items-center justify-between p-2 rounded-lg border bg-background">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="size-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs font-mono">{pk.id.slice(0, 16)}...</p>
+                      <p className="text-xs text-muted-foreground">{new Date(pk.created_at * 1000).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={async () => {
+                    if (!confirm("删除此 Passkey？")) return;
+                    try { await api.deletePasskey(pk.id); load(); } catch {}
+                  }}><Trash2 className="size-4 text-destructive" /></Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
     </Card>
   );
 }

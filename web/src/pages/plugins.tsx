@@ -236,12 +236,12 @@ function PluginCard({ plugin, onRefresh, isAdmin, isLoggedIn, mode }: {
           <div className="flex items-center gap-2 flex-wrap">
             {plugin.icon && <span className="text-base">{plugin.icon}</span>}
             <span className="text-base font-medium">{plugin.name}</span>
-            <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
-            <span className="text-[10px] text-muted-foreground">v{plugin.version}</span>
-            {plugin.license && <span className="text-[10px] text-muted-foreground">{plugin.license}</span>}
+            <Badge variant={s.variant} className="text-xs">{s.label}</Badge>
+            <span className="text-xs text-muted-foreground">v{plugin.version}</span>
+            {plugin.license && <span className="text-xs text-muted-foreground">{plugin.license}</span>}
           </div>
           <p className="mt-1.5 text-sm leading-7 text-muted-foreground">{plugin.description}</p>
-          <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
             <span>作者: {plugin.author || "anonymous"}</span>
             {(plugin.owner_name || plugin.submitter_name) && <span>拥有者: {plugin.owner_name || plugin.submitter_name}</span>}
             <span>{plugin.install_count} 次安装</span>
@@ -254,13 +254,13 @@ function PluginCard({ plugin, onRefresh, isAdmin, isLoggedIn, mode }: {
             {plugin.commit_hash && <span className="font-mono">{plugin.commit_hash.slice(0, 7)}</span>}
           </div>
           {/* Security summary */}
-          <div className="flex items-center gap-2 mt-1 text-[10px] flex-wrap">
+          <div className="flex items-center gap-2 mt-1 text-xs flex-wrap">
             <span className={riskColors[riskLevel]}><Shield className="w-3 h-3 inline mr-0.5" />{riskLabels[riskLevel]}</span>
             <span className="text-muted-foreground">权限: {grants.length > 0 ? grants.join(", ") : "none"}</span>
             <span className="text-muted-foreground">消息: {matchTypes}</span>
             {connectDomains !== "*" && <span className="text-muted-foreground">域名: {connectDomains}</span>}
           </div>
-          {plugin.reject_reason && <p className="text-[10px] text-destructive mt-0.5">拒绝原因：{plugin.reject_reason}</p>}
+          {plugin.reject_reason && <p className="text-xs text-destructive mt-0.5">拒绝原因：{plugin.reject_reason}</p>}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={toggleVersions}>
@@ -300,11 +300,11 @@ function PluginCard({ plugin, onRefresh, isAdmin, isLoggedIn, mode }: {
 
       {showVersions && versions && (
         <div className="space-y-1">
-          <p className="text-[10px] font-medium">发版历史</p>
+          <p className="text-xs font-medium">发版历史</p>
           {versions.map((v) => (
-            <div key={v.id} className="flex items-center gap-2 text-[10px] p-1.5 rounded border bg-background">
+            <div key={v.id} className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background">
               <span className="font-mono font-medium">v{v.version}</span>
-              <Badge variant={v.status === "approved" ? "default" : v.status === "rejected" || v.status === "cancelled" ? "destructive" : "outline"} className="text-[10px]">
+              <Badge variant={v.status === "approved" ? "default" : v.status === "rejected" || v.status === "cancelled" ? "destructive" : "outline"} className="text-xs">
                 {v.status === "approved" ? "✓" : v.status === "rejected" ? "✕" : v.status === "superseded" ? "⊘" : v.status === "cancelled" ? "✕" : "⏳"}
               </Badge>
               <span className="text-muted-foreground">{v.status}</span>
@@ -317,20 +317,20 @@ function PluginCard({ plugin, onRefresh, isAdmin, isLoggedIn, mode }: {
               )}
             </div>
           ))}
-          {versions.length === 0 && <p className="text-[10px] text-muted-foreground">暂无历史版本</p>}
+          {versions.length === 0 && <p className="text-xs text-muted-foreground">暂无历史版本</p>}
         </div>
       )}
 
       {showScript && (
         <div>
           {detail?.script ? (
-            <pre className="text-[10px] bg-background border rounded p-3 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap font-mono">{detail.script}</pre>
+            <pre className="text-xs bg-background border rounded p-3 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap font-mono">{detail.script}</pre>
           ) : plugin.github_url ? (
             <a href={plugin.github_url} target="_blank" rel="noopener" className="text-xs text-primary flex items-center gap-1">
               <ExternalLink className="w-3 h-3" /> 在 GitHub 查看源码
             </a>
           ) : (
-            <p className="text-[10px] text-muted-foreground">登录后可查看脚本源码</p>
+            <p className="text-xs text-muted-foreground">登录后可查看脚本源码</p>
           )}
         </div>
       )}
@@ -367,13 +367,13 @@ function MyPluginsTab({ plugins, onRefresh }: { plugins: any[]; onRefresh: () =>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-medium">{p.name}</span>
-                  <span className="text-[10px] text-muted-foreground">v{p.version}</span>
-                  <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
+                  <span className="text-xs text-muted-foreground">v{p.version}</span>
+                  <Badge variant={s.variant} className="text-xs">{s.label}</Badge>
                 </div>
-                <p className="text-[10px] text-muted-foreground truncate">{p.description}</p>
+                <p className="text-xs text-muted-foreground truncate">{p.description}</p>
               </div>
             </div>
-            <div className="text-[10px] text-muted-foreground shrink-0 ml-2 text-right">
+            <div className="text-xs text-muted-foreground shrink-0 ml-2 text-right">
               <p>{p.install_count} 安装</p>
               <p>{new Date(p.created_at * 1000).toLocaleDateString()}</p>
             </div>
