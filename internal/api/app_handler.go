@@ -334,7 +334,10 @@ func (s *Server) requireAppForInstall(w http.ResponseWriter, r *http.Request) *d
 		jsonError(w, "not found", http.StatusNotFound)
 		return nil
 	}
-	if app.OwnerID != userID && !app.Listed {
+	// Admin can access all apps; otherwise must be owner or listed
+	user, _ := s.DB.GetUserByID(userID)
+	isAdmin := user != nil && database.IsAdmin(user.Role)
+	if !isAdmin && app.OwnerID != userID && !app.Listed {
 		jsonError(w, "not found", http.StatusNotFound)
 		return nil
 	}
@@ -357,11 +360,15 @@ func (s *Server) requireInstallation(w http.ResponseWriter, r *http.Request, app
 		return nil
 	}
 
-	// Verify user owns the bot
-	bot, err := s.DB.GetBot(inst.BotID)
-	if err != nil || bot.UserID != userID {
-		jsonError(w, "installation not found", http.StatusNotFound)
-		return nil
+	// Verify user owns the bot (admin can access all)
+	user, _ := s.DB.GetUserByID(userID)
+	isAdmin := user != nil && database.IsAdmin(user.Role)
+	if !isAdmin {
+		bot, err := s.DB.GetBot(inst.BotID)
+		if err != nil || bot.UserID != userID {
+			jsonError(w, "installation not found", http.StatusNotFound)
+			return nil
+		}
 	}
 	return inst
 }
