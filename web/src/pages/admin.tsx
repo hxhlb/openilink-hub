@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Card } from "../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { api } from "../lib/api";
 import { Save, Trash2 } from "lucide-react";
 
@@ -72,7 +72,7 @@ function DashboardTab() {
         <div key={item.label} className="p-4 rounded-lg border bg-card text-center">
           <p className="text-2xl font-bold">{item.value}</p>
           <p className="text-xs text-muted-foreground">{item.label}</p>
-          {item.sub && <p className="text-[10px] text-muted-foreground mt-0.5">{item.sub}</p>}
+          {item.sub && <p className="text-xs text-muted-foreground mt-0.5">{item.sub}</p>}
         </div>
       ))}
     </div>
@@ -134,7 +134,7 @@ function UsersTab() {
           {showCreate ? "取消" : "创建用户"}
         </Button>
       </div>
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       {showCreate && (
         <form onSubmit={handleCreate} className="p-3 rounded-lg border bg-card space-y-2">
@@ -146,7 +146,7 @@ function UsersTab() {
             <div className="flex gap-1">
               {["member", "admin"].map((r) => (
                 <button key={r} type="button" onClick={() => setNewRole(r)}
-                  className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${newRole === r ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                  className={`px-2 py-0.5 text-xs rounded cursor-pointer ${newRole === r ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
                   {r === "admin" ? "管理员" : "成员"}
                 </button>
               ))}
@@ -160,26 +160,26 @@ function UsersTab() {
         {users.map((u) => (
           <div key={u.id} className="flex items-center justify-between p-2.5 rounded-lg border bg-card">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-[10px] font-medium">
+              <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-xs font-medium">
                 {u.username.charAt(0).toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-medium">{u.username}</span>
-                  <span className={`text-[10px] px-1 rounded ${u.role === "superadmin" ? "bg-yellow-500/10 text-yellow-600" : u.role === "admin" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                  <span className={`text-xs px-1 rounded ${u.role === "superadmin" ? "bg-yellow-500/10 text-yellow-600" : u.role === "admin" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
                     {u.role === "superadmin" ? "超级管理员" : u.role === "admin" ? "管理员" : "成员"}
                   </span>
-                  {u.status === "disabled" && <span className="text-[10px] px-1 rounded bg-destructive/10 text-destructive">已禁用</span>}
+                  {u.status === "disabled" && <span className="text-xs px-1 rounded bg-destructive/10 text-destructive">已禁用</span>}
                 </div>
-                {u.email && <p className="text-[10px] text-muted-foreground">{u.email}</p>}
+                {u.email && <p className="text-xs text-muted-foreground">{u.email}</p>}
               </div>
             </div>
             {u.role !== "superadmin" && (
               <div className="flex items-center gap-1">
-                <button onClick={() => handleToggleRole(u)} className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-secondary cursor-pointer">{u.role === "admin" ? "降级" : "升级"}</button>
-                <button onClick={() => handleToggleStatus(u)} className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-secondary cursor-pointer">{u.status === "active" ? "禁用" : "启用"}</button>
-                <button onClick={() => handleResetPassword(u)} className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-secondary cursor-pointer">重置密码</button>
-                <button onClick={() => handleDelete(u)} className="text-[10px] text-destructive px-1.5 py-0.5 rounded hover:bg-destructive/10 cursor-pointer">删除</button>
+                <button onClick={() => handleToggleRole(u)} className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-secondary cursor-pointer">{u.role === "admin" ? "降级" : "升级"}</button>
+                <button onClick={() => handleToggleStatus(u)} className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-secondary cursor-pointer">{u.status === "active" ? "禁用" : "启用"}</button>
+                <button onClick={() => handleResetPassword(u)} className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-secondary cursor-pointer">重置密码</button>
+                <button onClick={() => handleDelete(u)} className="text-xs text-destructive px-1.5 py-0.5 rounded hover:bg-destructive/10 cursor-pointer">删除</button>
               </div>
             )}
           </div>
@@ -225,21 +225,25 @@ function SystemSection() {
   if (!info) return null;
 
   return (
-    <Card className="space-y-2">
-      <h3 className="text-sm font-medium">服务状态</h3>
-      <div className="space-y-1.5">
-        {[
-          { label: "AI 服务", enabled: info.ai },
-          { label: "对象存储 (MinIO)", enabled: info.storage },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center justify-between text-sm p-2 rounded-lg border bg-background">
-            <span className="text-xs">{item.label}</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded ${item.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-              {item.enabled ? "已启用" : "未配置"}
-            </span>
-          </div>
-        ))}
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>服务状态</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-1.5">
+          {[
+            { label: "AI 服务", enabled: info.ai },
+            { label: "对象存储 (MinIO)", enabled: info.storage },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center justify-between text-sm p-2 rounded-lg border bg-background">
+              <span className="text-xs">{item.label}</span>
+              <span className={`text-xs px-2 py-0.5 rounded ${item.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                {item.enabled ? "已启用" : "未配置"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
     </Card>
   );
 }
@@ -278,25 +282,35 @@ function AISection() {
   }
 
   return (
-    <Card className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">AI 配置</h3>
-        {configured && <Button variant="ghost" size="sm" onClick={async () => { if (confirm("删除全局 AI 配置？")) { await api.deleteAIConfig(); load(); } }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>}
-      </div>
-      <p className="text-[10px] text-muted-foreground">配置后渠道可选择「内置」模式，无需单独填写 API Key</p>
-      <Input placeholder="https://api.openai.com/v1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="h-8 text-xs font-mono" />
-      <div className="flex gap-2">
-        <Input type="password" placeholder={configured ? `已配置 (${config.api_key})，留空不变` : "API Key"} value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="h-8 text-xs font-mono" />
-        <Input placeholder="模型名称" value={model} onChange={(e) => setModel(e.target.value)} className="h-8 text-xs font-mono w-40" />
-      </div>
-      <textarea placeholder="默认 System Prompt" value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={3}
-        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring resize-none" />
-      <div className="flex items-center gap-2">
-        <label className="text-[10px] text-muted-foreground">上下文消息数</label>
-        <Input type="number" value={maxHistory} onChange={(e) => setMaxHistory(parseInt(e.target.value) || 20)} className="h-8 text-xs w-20" min={1} max={100} />
-      </div>
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
-      <div className="flex justify-end"><Button size="sm" onClick={handleSave} disabled={saving}>保存</Button></div>
+    <Card>
+      <CardHeader>
+        <CardTitle>AI 配置</CardTitle>
+        {configured && (
+          <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+            <Button variant="ghost" size="sm" onClick={async () => { if (confirm("删除全局 AI 配置？")) { await api.deleteAIConfig(); load(); } }}>
+              <Trash2 className="text-destructive" />
+            </Button>
+          </div>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">配置后渠道可选择「内置」模式，无需单独填写 API Key</p>
+          <Input placeholder="https://api.openai.com/v1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="font-mono" />
+          <div className="flex gap-2">
+            <Input type="password" placeholder={configured ? `已配置 (${config.api_key})，留空不变` : "API Key"} value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="font-mono" />
+            <Input placeholder="模型名称" value={model} onChange={(e) => setModel(e.target.value)} className="font-mono w-40" />
+          </div>
+          <textarea placeholder="默认 System Prompt" value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={3}
+            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring resize-none" />
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">上下文消息数</label>
+            <Input type="number" value={maxHistory} onChange={(e) => setMaxHistory(parseInt(e.target.value) || 20)} className="w-20" min={1} max={100} />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <div className="flex justify-end"><Button size="sm" onClick={handleSave} disabled={saving}>保存</Button></div>
+        </div>
+      </CardContent>
     </Card>
   );
 }
@@ -310,15 +324,21 @@ function OAuthSection() {
   const callbackBase = window.location.origin + "/api/auth/oauth/";
 
   return (
-    <Card className="space-y-3">
-      <h3 className="text-sm font-medium">OAuth 配置</h3>
-      <p className="text-[10px] text-muted-foreground">DB 配置优先于环境变量，无需重启服务。</p>
-      {error && <p className="text-xs text-destructive">{error}</p>}
-      {Object.keys(providerLabels).map((name) => (
-        <OAuthProviderForm key={name} name={name} label={providerLabels[name]} config={config[name]}
-          callbackURL={callbackBase + name + "/callback"} help={providerCallbackHelp[name]}
-          onSaved={loadConfig} onError={setError} />
-      ))}
+    <Card>
+      <CardHeader>
+        <CardTitle>OAuth 配置</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-4">
+          <p className="text-xs text-muted-foreground">DB 配置优先于环境变量，无需重启服务。</p>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          {Object.keys(providerLabels).map((name) => (
+            <OAuthProviderForm key={name} name={name} label={providerLabels[name]} config={config[name]}
+              callbackURL={callbackBase + name + "/callback"} help={providerCallbackHelp[name]}
+              onSaved={loadConfig} onError={setError} />
+          ))}
+        </div>
+      </CardContent>
     </Card>
   );
 }
@@ -347,7 +367,7 @@ function OAuthProviderForm({ name, label, config, callbackURL, help, onSaved, on
       <div className="flex items-center justify-between">
         <div>
           <span className="text-sm font-medium">{label}</span>
-          {enabled && <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${source === "db" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{source === "db" ? "数据库" : "环境变量"}</span>}
+          {enabled && <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${source === "db" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{source === "db" ? "数据库" : "环境变量"}</span>}
         </div>
         {source === "db" && (
           <Button variant="ghost" size="sm" onClick={async () => { if (confirm(`删除 ${label} OAuth？`)) { onError(""); try { await api.deleteOAuthConfig(name); onSaved(); } catch (e: any) { onError(e.message); } } }}>
@@ -358,7 +378,7 @@ function OAuthProviderForm({ name, label, config, callbackURL, help, onSaved, on
       <Input placeholder="Client ID" value={clientId} onChange={(e) => setClientId(e.target.value)} className="h-8 text-xs font-mono" />
       <Input type="password" placeholder={enabled ? "Client Secret（留空不变）" : "Client Secret"} value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} className="h-8 text-xs font-mono" />
       <div className="flex items-center justify-between">
-        <div className="text-[10px] text-muted-foreground space-y-0.5">
+        <div className="text-xs text-muted-foreground space-y-0.5">
           <p>回调：<code className="select-all">{callbackURL}</code></p>
           <p>{help}</p>
         </div>

@@ -49,7 +49,7 @@ function ItemContent({ item, m, index }: { item: MessageItem; m: Message; index:
       <div className="space-y-1">
         <audio src={url} controls className="h-8" />
         {item.text && item.text !== "[voice]" && <p className="text-xs opacity-70">{item.text}</p>}
-        <div className="flex gap-2 text-[10px]">
+        <div className="flex gap-2 text-xs">
           <a href={url} download className="text-muted-foreground hover:text-primary">WAV</a>
           {silkUrl && <a href={silkUrl} download className="text-muted-foreground hover:text-primary">SILK</a>}
         </div>
@@ -97,7 +97,7 @@ function MessageContent({ m }: { m: Message }) {
             }}
           >重试</button>
         </div>
-        <p className="text-[10px] text-muted-foreground">CDN 链接可能已过期，需要对方重新发送</p>
+        <p className="text-xs text-muted-foreground">CDN 链接可能已过期，需要对方重新发送</p>
       </div>
     );
   }
@@ -372,7 +372,7 @@ export function BotDetailPage() {
                     isIn ? "bg-secondary rounded-bl-sm" : "bg-primary text-primary-foreground rounded-br-sm"
                   } ${m._sending ? "opacity-60" : ""}`}>
                     <MessageContent m={m} />
-                    <div className={`text-[10px] mt-1 ${isIn ? "text-muted-foreground" : "opacity-50"}`}>
+                    <div className={`text-xs mt-1 ${isIn ? "text-muted-foreground" : "opacity-50"}`}>
                       {m._sending ? "发送中..." : m._error ? (
                         <span className="text-destructive">
                           {m._error}
@@ -403,7 +403,7 @@ export function BotDetailPage() {
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs truncate">{pendingFile.name}</p>
-                <p className="text-[10px] text-muted-foreground">{(pendingFile.size / 1024).toFixed(1)} KB</p>
+                <p className="text-xs text-muted-foreground">{(pendingFile.size / 1024).toFixed(1)} KB</p>
               </div>
               <Button size="sm" className="h-7" onClick={confirmFileSend} disabled={sending}>发送</Button>
               <Button size="sm" variant="ghost" className="h-7" onClick={cancelFile}>取消</Button>
@@ -463,7 +463,7 @@ function ChannelsTab({ botId, channels, onRefresh }: { botId: string; channels: 
             <Button type="submit" size="sm">创建</Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setCreating(false)}>取消</Button>
           </div>
-          <p className="text-[10px] text-muted-foreground">设置提及标识后，用户发送 @标识 的消息将定向路由到此通道</p>
+          <p className="text-xs text-muted-foreground">设置提及标识后，用户发送 @标识 的消息将定向路由到此通道</p>
         </form>
       ) : (
         <Button variant="outline" size="sm" onClick={() => setCreating(true)} className="w-full">
@@ -603,11 +603,11 @@ function ChannelCard({ botId, channel, onRefresh }: { botId: string; channel: an
           <Cable className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-sm font-medium">{channel.name}</span>
           {channel.handle ? (
-            <span className="text-[10px] font-mono text-muted-foreground">@{channel.handle}</span>
+            <span className="text-xs font-mono text-muted-foreground">@{channel.handle}</span>
           ) : (
-            <span className="text-[10px] text-muted-foreground">全部消息</span>
+            <span className="text-xs text-muted-foreground">全部消息</span>
           )}
-          {!channel.enabled && <Badge variant="outline" className="text-[10px]">停用</Badge>}
+          {!channel.enabled && <Badge variant="outline" className="text-xs">停用</Badge>}
         </div>
         <Button variant="ghost" size="sm" onClick={(e) => {
           e.stopPropagation();
@@ -616,7 +616,7 @@ function ChannelCard({ botId, channel, onRefresh }: { botId: string; channel: an
           <Trash2 className="w-3.5 h-3.5 text-destructive" />
         </Button>
       </div>
-      <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
         {hasWebhook && <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded flex items-center gap-0.5"><Webhook className="w-2.5 h-2.5" /> Webhook</span>}
         {hasPlugin && <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded flex items-center gap-0.5"><Puzzle className="w-2.5 h-2.5" /> 插件</span>}
         {aiEnabled && <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded flex items-center gap-0.5"><Bot className="w-2.5 h-2.5" /> AI</span>}
@@ -676,7 +676,7 @@ function ChannelRow({ botId, channel, onRefresh }: { botId: string; channel: any
                 value={handleVal}
                 onChange={(e) => setHandleVal(e.target.value)}
                 placeholder="handle"
-                className="h-5 text-[10px] w-24 px-1.5 font-mono"
+                className="h-5 text-xs w-24 px-1.5 font-mono"
                 autoFocus
                 onBlur={saveHandle}
               />
@@ -684,23 +684,23 @@ function ChannelRow({ botId, channel, onRefresh }: { botId: string; channel: any
           ) : (
             <button
               onClick={() => setEditingHandle(true)}
-              className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded cursor-pointer hover:bg-secondary/80"
+              className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded cursor-pointer hover:bg-secondary/80"
             >
               {channel.handle ? `@${channel.handle}` : "+ handle"}
             </button>
           )}
           {aiEnabled && (
-            <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+            <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
               <Bot className="w-2.5 h-2.5" /> AI
             </span>
           )}
           {channel.webhook_config?.url && (
-            <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+            <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
               <Webhook className="w-2.5 h-2.5" /> Webhook
             </span>
           )}
           {channel.webhook_config?.plugin_id && (
-            <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+            <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
               <Puzzle className="w-2.5 h-2.5" /> 插件
             </span>
           )}
@@ -786,7 +786,7 @@ function AIConfigPanel({ botId, channelId, config, onSaved }: { botId: string; c
           <Bot className="w-3.5 h-3.5" /> AI 自动回复
         </span>
         <label className="flex items-center gap-1.5 cursor-pointer">
-          <span className="text-[10px] text-muted-foreground">{enabled ? "已开启" : "已关闭"}</span>
+          <span className="text-xs text-muted-foreground">{enabled ? "已开启" : "已关闭"}</span>
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
         </label>
       </div>
@@ -810,7 +810,7 @@ function AIConfigPanel({ botId, channelId, config, onSaved }: { botId: string; c
           </div>
 
           {source === "builtin" && (
-            <p className="text-[10px] text-muted-foreground">使用管理员在设置中配置的全局 AI 服务</p>
+            <p className="text-xs text-muted-foreground">使用管理员在设置中配置的全局 AI 服务</p>
           )}
 
           {source === "custom" && (
@@ -835,10 +835,10 @@ function AIConfigPanel({ botId, channelId, config, onSaved }: { botId: string; c
             className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-[11px] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring resize-none"
           />
           <div className="flex items-center gap-2">
-            <label className="text-[10px] text-muted-foreground shrink-0">上下文消息数</label>
+            <label className="text-xs text-muted-foreground shrink-0">上下文消息数</label>
             <Input type="number" value={maxHistory} onChange={(e) => setMaxHistory(parseInt(e.target.value) || 20)} className="h-7 text-[11px] w-20" min={1} max={100} />
             <div className="flex-1" />
-            {error && <span className="text-[10px] text-destructive">{error}</span>}
+            {error && <span className="text-xs text-destructive">{error}</span>}
             <Button size="sm" className="h-7" onClick={handleSave} disabled={saving || !canSave}>{saving ? "..." : "保存"}</Button>
           </div>
         </div>
@@ -933,7 +933,7 @@ function WebhookPanel({ botId, channelId, config, onSaved }: {
         {/* Auth */}
         <div className="flex gap-1">
           {["", "bearer", "header", "hmac"].map((t) => (
-            <button key={t} onClick={() => setAuthType(t)} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer transition-colors ${authType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
+            <button key={t} onClick={() => setAuthType(t)} className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${authType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
               {t || "无认证"}
             </button>
           ))}
@@ -949,10 +949,10 @@ function WebhookPanel({ botId, channelId, config, onSaved }: {
 
         {/* Script source */}
         <div className="flex gap-1">
-          <button onClick={() => setScriptMode("plugin")} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer transition-colors ${scriptMode === "plugin" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
+          <button onClick={() => setScriptMode("plugin")} className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${scriptMode === "plugin" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
             插件市场
           </button>
-          <button onClick={() => setScriptMode("manual")} className={`px-2 py-0.5 text-[10px] rounded cursor-pointer transition-colors ${scriptMode === "manual" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
+          <button onClick={() => setScriptMode("manual")} className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${scriptMode === "manual" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
             手动脚本
           </button>
         </div>
@@ -965,11 +965,11 @@ function WebhookPanel({ botId, channelId, config, onSaved }: {
                   <span>{pluginInfo.icon} </span>
                   <span className="font-medium">{pluginInfo.name}</span>
                   <span className="text-muted-foreground ml-1">v{pluginInfo.version}</span>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{pluginInfo.description}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{pluginInfo.description}</p>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setShowPluginPicker(true)}>更换</Button>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive" onClick={handleUninstallPlugin}>卸载</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setShowPluginPicker(true)}>更换</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive" onClick={handleUninstallPlugin}>卸载</Button>
                 </div>
               </div>
             ) : (
@@ -980,14 +980,14 @@ function WebhookPanel({ botId, channelId, config, onSaved }: {
 
             {showPluginPicker && (
               <div className="border rounded p-2 space-y-1 max-h-40 overflow-y-auto bg-card">
-                {plugins.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-2">暂无可用插件</p>}
+                {plugins.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">暂无可用插件</p>}
                 {plugins.map((p) => (
                   <button key={p.id} onClick={() => handleInstallPlugin(p.id)} className="w-full text-left p-1.5 rounded hover:bg-secondary cursor-pointer text-xs flex items-center justify-between">
                     <span>{p.icon} {p.name} <span className="text-muted-foreground">v{p.version}</span></span>
-                    <span className="text-[10px] text-muted-foreground">{p.install_count} 安装</span>
+                    <span className="text-xs text-muted-foreground">{p.install_count} 安装</span>
                   </button>
                 ))}
-                <button onClick={() => setShowPluginPicker(false)} className="w-full text-center text-[10px] text-muted-foreground hover:text-primary cursor-pointer py-1">取消</button>
+                <button onClick={() => setShowPluginPicker(false)} className="w-full text-center text-xs text-muted-foreground hover:text-primary cursor-pointer py-1">取消</button>
               </div>
             )}
           </div>
@@ -1004,9 +1004,9 @@ function WebhookPanel({ botId, channelId, config, onSaved }: {
         )}
       </div>
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-muted-foreground">收到消息时 POST 到此 URL。</p>
+        <p className="text-xs text-muted-foreground">收到消息时 POST 到此 URL。</p>
         <div className="flex items-center gap-2">
-          {error && <span className="text-[10px] text-destructive">{error}</span>}
+          {error && <span className="text-xs text-destructive">{error}</span>}
           <Button size="sm" className="h-7" onClick={handleSave} disabled={saving}>{saving ? "..." : "保存"}</Button>
         </div>
       </div>
@@ -1106,7 +1106,7 @@ function LivePanel({ wsUrl, onClose }: { wsUrl: string; onClose: () => void }) {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b bg-secondary/30">
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-medium ${statusColor}`}>
+          <span className={`text-xs font-medium ${statusColor}`}>
             {status === "connected" ? "LIVE" : status === "connecting" ? "CONNECTING" : "DISCONNECTED"}
           </span>
         </div>
@@ -1145,7 +1145,7 @@ function LogEntry({ log }: { log: WsLogEntry }) {
 
   if (log.dir === "sys") {
     return (
-      <div className="text-muted-foreground text-center text-[10px] py-0.5">
+      <div className="text-muted-foreground text-center text-xs py-0.5">
         — {log.type} {log.time} —
       </div>
     );
@@ -1200,13 +1200,13 @@ function LogEntry({ log }: { log: WsLogEntry }) {
         className={`flex items-start gap-1.5 ${hasDetail ? "cursor-pointer" : ""} hover:bg-secondary/30 rounded px-1 -mx-1`}
         onClick={() => hasDetail && setExpanded(!expanded)}
       >
-        <span className="text-muted-foreground shrink-0 w-14 text-[10px] pt-px">{log.time}</span>
+        <span className="text-muted-foreground shrink-0 w-14 text-xs pt-px">{log.time}</span>
         <span className={`shrink-0 ${dirColor}`}>{dirIcon}</span>
         <span className="text-primary shrink-0 font-medium">{log.type}</span>
         <span className="text-foreground truncate">{summary}</span>
       </div>
       {expanded && d != null && (
-        <pre className="ml-[70px] text-[10px] text-muted-foreground bg-secondary/30 rounded p-2 mt-0.5 mb-1 overflow-x-auto whitespace-pre-wrap break-all">
+        <pre className="ml-[70px] text-xs text-muted-foreground bg-secondary/30 rounded p-2 mt-0.5 mb-1 overflow-x-auto whitespace-pre-wrap break-all">
           {JSON.stringify(d, null, 2)}
         </pre>
       )}
@@ -1217,8 +1217,8 @@ function LogEntry({ log }: { log: WsLogEntry }) {
 function CopyRow({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-muted-foreground w-16 shrink-0">{label}</span>
-      <code className="flex-1 text-[10px] text-muted-foreground font-mono bg-background border rounded px-2 py-1 truncate select-all">
+      <span className="text-xs text-muted-foreground w-16 shrink-0">{label}</span>
+      <code className="flex-1 text-xs text-muted-foreground font-mono bg-background border rounded px-2 py-1 truncate select-all">
         {value}
       </code>
       <button onClick={onCopy} className="cursor-pointer text-muted-foreground hover:text-foreground shrink-0">
@@ -1274,7 +1274,7 @@ function BotSettingsTab({ bot, onUpdate }: { bot: any; onUpdate: () => void }) {
               />
               <span className="text-xs text-muted-foreground">小时后提醒</span>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               设为 {reminderHours} 小时：Bot 静默 {reminderHours} 小时后发送提醒，距 24 小时过期还剩约 {Math.max(1, 24 - reminderHours)} 小时。建议设为 23 小时（提前 1 小时提醒）。
             </p>
           </>

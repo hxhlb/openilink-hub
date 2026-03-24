@@ -124,8 +124,8 @@ function SettingsTab({ app, onUpdate }: { app: any; onUpdate: () => void }) {
           <Input placeholder="主页 URL" value={form.homepage} onChange={(e) => setForm((f) => ({ ...f, homepage: e.target.value }))} className="h-8 text-xs" />
           <div className="flex items-center justify-between">
             <div>
-              {error && <span className="text-[10px] text-destructive">{error}</span>}
-              {success && <span className="text-[10px] text-primary">{success}</span>}
+              {error && <span className="text-xs text-destructive">{error}</span>}
+              {success && <span className="text-xs text-primary">{success}</span>}
             </div>
             <Button type="submit" size="sm" disabled={saving}>{saving ? "..." : "保存"}</Button>
           </div>
@@ -182,7 +182,7 @@ function CommandsEditor({ app, onUpdate }: { app: any; onUpdate: () => void }) {
         </Button>
       </div>
       {commands.length === 0 && (
-        <p className="text-[10px] text-muted-foreground">暂无命令</p>
+        <p className="text-xs text-muted-foreground">暂无命令</p>
       )}
       {commands.map((cmd, i) => (
         <div key={i} className="flex items-start gap-2 p-2 rounded-lg border bg-background">
@@ -233,7 +233,7 @@ function EventsScopesTab({ app, onUpdate }: { app: any; onUpdate: () => void }) 
             <label key={et.key} className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={events.includes(et.key)} onChange={() => toggleEvent(et.key)} className="w-3.5 h-3.5 accent-primary" />
               <span className="text-xs">{et.label}</span>
-              <span className="text-[10px] text-muted-foreground font-mono">{et.key}</span>
+              <span className="text-xs text-muted-foreground font-mono">{et.key}</span>
             </label>
           ))}
         </div>
@@ -247,7 +247,7 @@ function EventsScopesTab({ app, onUpdate }: { app: any; onUpdate: () => void }) 
             <label key={s.key} className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={scopes.includes(s.key)} onChange={() => toggleScope(s.key)} className="w-3.5 h-3.5 accent-primary" />
               <span className="text-xs">{s.label}</span>
-              <span className="text-[10px] text-muted-foreground font-mono">{s.key}</span>
+              <span className="text-xs text-muted-foreground font-mono">{s.key}</span>
             </label>
           ))}
         </div>

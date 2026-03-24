@@ -143,7 +143,7 @@ function BotCard({ bot, channelCount, onRefresh }: { bot: any; channelCount: num
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-muted-foreground">{channelCount} 个通道</span>
           {bot.status === "session_expired" && (
-            <span className="text-[10px] text-destructive">会话过期，请重新扫码绑定</span>
+            <span className="text-xs text-destructive">会话过期，请重新扫码绑定</span>
           )}
         </div>
       </div>

@@ -117,7 +117,7 @@ function InstallationConfig({ appId, installation, onUpdate, onBack }: { appId: 
             <ExternalLink className="w-3 h-3 mr-1" /> {verifying ? "..." : "验证 URL"}
           </Button>
           {verifyResult && (
-            <span className={`text-[10px] ${verifyResult.includes("成功") ? "text-primary" : "text-destructive"}`}>
+            <span className={`text-xs ${verifyResult.includes("成功") ? "text-primary" : "text-destructive"}`}>
               {verifyResult}
             </span>
           )}
@@ -199,11 +199,11 @@ function LogsView({ appId, installationId, type }: { appId: string; installation
   return (
     <div className="space-y-2">
       {type === "event" ? (
-        <div className="text-[10px] text-muted-foreground grid grid-cols-5 gap-2 px-2 font-medium">
+        <div className="text-xs text-muted-foreground grid grid-cols-5 gap-2 px-2 font-medium">
           <span>事件</span><span>状态</span><span>Trace ID</span><span>耗时</span><span>时间</span>
         </div>
       ) : (
-        <div className="text-[10px] text-muted-foreground grid grid-cols-5 gap-2 px-2 font-medium">
+        <div className="text-xs text-muted-foreground grid grid-cols-5 gap-2 px-2 font-medium">
           <span>方法</span><span>路径</span><span>状态</span><span>耗时</span><span>时间</span>
         </div>
       )}
@@ -215,19 +215,19 @@ function LogsView({ appId, installationId, type }: { appId: string; installation
               <Badge variant={log.status === "success" || log.status_code < 300 ? "default" : "destructive"} className="w-fit">
                 {log.status || log.status_code}
               </Badge>
-              <span className="font-mono truncate text-[10px]">{log.trace_id || "---"}</span>
+              <span className="font-mono truncate text-xs">{log.trace_id || "---"}</span>
               <span className="text-muted-foreground">{log.duration_ms != null ? `${log.duration_ms}ms` : "---"}</span>
-              <span className="text-muted-foreground text-[10px]">{log.created_at ? new Date(log.created_at * 1000).toLocaleString() : "---"}</span>
+              <span className="text-muted-foreground text-xs">{log.created_at ? new Date(log.created_at * 1000).toLocaleString() : "---"}</span>
             </>
           ) : (
             <>
               <span className="font-mono">{log.method}</span>
-              <span className="font-mono truncate text-[10px]">{log.path}</span>
+              <span className="font-mono truncate text-xs">{log.path}</span>
               <Badge variant={log.status_code < 300 ? "default" : "destructive"} className="w-fit">
                 {log.status_code}
               </Badge>
               <span className="text-muted-foreground">{log.duration_ms != null ? `${log.duration_ms}ms` : "---"}</span>
-              <span className="text-muted-foreground text-[10px]">{log.created_at ? new Date(log.created_at * 1000).toLocaleString() : "---"}</span>
+              <span className="text-muted-foreground text-xs">{log.created_at ? new Date(log.created_at * 1000).toLocaleString() : "---"}</span>
             </>
           )}
         </div>
