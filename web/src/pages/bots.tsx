@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardAction,
+  CardContent,
+} from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Plus, Trash2, RefreshCw, Bot } from "lucide-react";
 import { api } from "../lib/api";
@@ -183,32 +190,38 @@ function BotCard({
 
   return (
     <Card
-      className="flex items-center justify-between cursor-pointer hover:border-primary/50 transition-colors"
+      size="sm"
+      className="cursor-pointer hover:border-primary/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      role="button"
+      tabIndex={0}
+      aria-label={`查看 Bot：${bot.name}`}
       onClick={() => navigate(`/dashboard/bot/${bot.id}`)}
     >
-      <div>
-        <p className="font-medium text-sm">{bot.name}</p>
-        <p className="text-xs text-muted-foreground font-mono mt-0.5">{bot.extra?.bot_id}</p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-muted-foreground">{channelCount} 个通道</span>
-          {bot.status === "session_expired" && (
-            <span className="text-xs text-destructive">会话过期，请重新扫码绑定</span>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Badge variant={statusVariant[bot.status] || "outline"}>
-          {bot.status === "session_expired" ? "已过期" : bot.status}
-        </Badge>
-        {bot.status !== "connected" && bot.status !== "session_expired" && (
-          <Button variant="ghost" size="sm" onClick={handleReconnect}>
-            <RefreshCw className="w-3.5 h-3.5" />
-          </Button>
+      <CardHeader>
+        <CardTitle>{bot.name}</CardTitle>
+        <CardDescription className="font-mono">{bot.extra?.bot_id}</CardDescription>
+        <CardAction>
+          <div className="flex items-center gap-1">
+            <Badge variant={statusVariant[bot.status] || "outline"}>
+              {bot.status === "session_expired" ? "已过期" : bot.status}
+            </Badge>
+            {bot.status !== "connected" && bot.status !== "session_expired" && (
+              <Button variant="ghost" size="sm" aria-label="重新连接 Bot" onClick={handleReconnect}>
+                <RefreshCw className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" aria-label="删除 Bot" onClick={handleDelete}>
+              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+            </Button>
+          </div>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">{channelCount} 个通道</span>
+        {bot.status === "session_expired" && (
+          <span className="text-xs text-destructive">会话过期，请重新扫码绑定</span>
         )}
-        <Button variant="ghost" size="sm" onClick={handleDelete}>
-          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-        </Button>
-      </div>
+      </CardContent>
     </Card>
   );
 }
