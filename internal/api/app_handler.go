@@ -33,6 +33,8 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		Icon        string          `json:"icon"`
 		IconURL     string          `json:"icon_url"`
 		Homepage    string          `json:"homepage"`
+		SetupURL    string          `json:"setup_url"`
+		RedirectURL string          `json:"redirect_url"`
 		Tools       json.RawMessage `json:"tools"`
 		Events      json.RawMessage `json:"events"`
 		Scopes      json.RawMessage `json:"scopes"`
@@ -67,6 +69,8 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		Icon:        req.Icon,
 		IconURL:     req.IconURL,
 		Homepage:    req.Homepage,
+		SetupURL:    req.SetupURL,
+		RedirectURL: req.RedirectURL,
 		Tools:       req.Tools,
 		Events:      req.Events,
 		Scopes:      req.Scopes,
