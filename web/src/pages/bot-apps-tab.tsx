@@ -58,7 +58,7 @@ export function BotAppsTab({ botId }: { botId: string }) {
   }
 
   async function handleUninstall(appId: string, instId: string) {
-    if (!confirm("确定卸载此 App？")) return;
+    if (!confirm("确定要卸载？")) return;
     try {
       await api.deleteInstallation(appId, instId);
       load();
@@ -68,7 +68,7 @@ export function BotAppsTab({ botId }: { botId: string }) {
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">已安装的 App</p>
+        <p className="text-sm font-medium">已安装的应用</p>
         <Button
           variant="outline"
           size="sm"
@@ -77,14 +77,14 @@ export function BotAppsTab({ botId }: { botId: string }) {
             if (!showInstall) loadApps();
           }}
         >
-          <Plus className="w-3.5 h-3.5 mr-1" /> 安装 App
+          <Plus className="w-3.5 h-3.5 mr-1" /> 安装应用
         </Button>
       </div>
 
       {installations.length === 0 && !showInstall && (
         <div className="text-center py-12 space-y-3">
           <Blocks className="w-10 h-10 mx-auto text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">暂无安装的 App</p>
+          <p className="text-sm text-muted-foreground">暂无安装的应用</p>
           <Button
             variant="outline"
             size="sm"
@@ -93,7 +93,7 @@ export function BotAppsTab({ botId }: { botId: string }) {
               loadApps();
             }}
           >
-            浏览 App 市场
+            浏览应用市场
           </Button>
         </div>
       )}
@@ -161,7 +161,7 @@ export function BotAppsTab({ botId }: { botId: string }) {
         <Card>
           <CardContent className="space-y-3 py-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">选择 App</p>
+              <p className="text-sm font-medium">选择应用</p>
               <Button variant="ghost" size="sm" onClick={() => setShowInstall(false)}>
                 关闭
               </Button>
@@ -169,13 +169,13 @@ export function BotAppsTab({ botId }: { botId: string }) {
             {error && <p className="text-xs text-destructive">{error}</p>}
             {apps.length === 0 && (
               <div className="text-center py-6 space-y-2">
-                <p className="text-xs text-muted-foreground">没有可用的 App</p>
+                <p className="text-xs text-muted-foreground">没有可用的应用</p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate("/dashboard/apps")}
                 >
-                  <ExternalLink className="w-3 h-3 mr-1" /> 去创建 App
+                  <ExternalLink className="w-3 h-3 mr-1" /> 去创建应用
                 </Button>
               </div>
             )}
@@ -309,11 +309,11 @@ function InstallConfirmModal({ app, installing, error, onConfirm, onCancel }: {
 
           {/* Handle */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Handle（用于 @提及，可清空）</label>
+            <label className="text-xs text-muted-foreground">Handle（可选）</label>
             <Input
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
-              placeholder="留空则只能通过 /command 触发"
+              placeholder="留空则不响应 @提及"
               className="h-8 text-xs font-mono"
             />
           </div>
@@ -438,7 +438,7 @@ function InstallationConfig({
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" onClick={() => navigate(`/dashboard/apps/${appId}`)}>
-            App 详情
+            应用详情
           </Button>
           <Button size="sm" variant="outline" onClick={handleToggle}>
             {inst.enabled ? "停用" : "启用"}

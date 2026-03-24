@@ -8,11 +8,11 @@ import { Bot, Puzzle, Webhook, Cable, Shield, Zap } from "lucide-react";
 import { api } from "../lib/api";
 
 const features = [
-  { icon: Bot, title: "多 Bot 管理", desc: "同时管理多个微信 Bot，每个 Bot 独立运行、独立配置" },
+  { icon: Bot, title: "多账号管理", desc: "同时管理多个微信账号，独立运行、独立配置" },
   {
     icon: Cable,
-    title: "渠道路由",
-    desc: "通过 @提及 将消息路由到不同渠道，支持 WebSocket 和 HTTP API",
+    title: "消息转发",
+    desc: "通过 @提及 将消息转发到不同服务，支持 WebSocket 和 HTTP API",
   },
   {
     icon: Webhook,
@@ -24,7 +24,7 @@ const features = [
     title: "插件市场",
     desc: "社区驱动的 Webhook 插件市场，一键安装飞书、Slack 等通知集成",
   },
-  { icon: Zap, title: "AI 自动回复", desc: "内置 OpenAI 兼容的 AI 回复能力，渠道级别开关控制" },
+  { icon: Zap, title: "AI 自动回复", desc: "内置 OpenAI 兼容的 AI 回复，按规则独立开关" },
   {
     icon: Shield,
     title: "安全沙箱",
@@ -77,7 +77,7 @@ export function HomePage() {
         >
           <span className="text-base font-semibold tracking-tight">OpeniLink Hub</span>
           <div className="flex items-center gap-3">
-            <Link to="/webhook-plugins">
+            <Link to="/plugins">
               <Button variant="ghost" size="sm" className="px-3 text-sm">
                 插件市场
               </Button>
@@ -152,13 +152,13 @@ export function HomePage() {
             {[
               {
                 step: "1",
-                title: "扫码绑定",
-                desc: "在 Hub 中扫码登录你的微信账号，系统自动创建 Bot",
+                title: "扫码登录",
+                desc: "在 Hub 中扫码登录你的微信账号",
               },
               {
                 step: "2",
-                title: "创建渠道",
-                desc: "为 Bot 创建一个或多个渠道，每个渠道有独立的 API Key",
+                title: "创建转发规则",
+                desc: "创建转发规则，每条规则有独立的 API Key",
               },
               {
                 step: "3",
@@ -168,7 +168,7 @@ export function HomePage() {
               {
                 step: "4",
                 title: "安装插件",
-                desc: "从插件市场一键安装通知转发、AI 回复等 Webhook 插件",
+                desc: "从插件市场一键安装飞书、Slack 等通知插件",
               },
             ].map((s) => (
               <div key={s.step} className="flex items-start gap-4 sm:gap-5">
@@ -194,7 +194,7 @@ export function HomePage() {
         >
           OpeniLink Hub
         </a>
-        {" · "}开源微信 Bot 管理平台
+        {" · "}开源微信消息平台
       </footer>
     </div>
   );

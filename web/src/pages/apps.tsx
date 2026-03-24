@@ -1,401 +1,340 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Card } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { Plus, Blocks, X, Download } from "lucide-react";
+import {
+  Plus,
+  Blocks,
+  Download,
+  ArrowRight,
+  Loader2,
+  Shield,
+  Zap,
+  Search,
+  CheckCircle2,
+  Rocket,
+} from "lucide-react";
 import { api } from "../lib/api";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
-function AppIcon({ icon, iconUrl, size = "w-8 h-8" }: { icon?: string; iconUrl?: string; size?: string }) {
-  if (iconUrl) return <img src={iconUrl} alt="" className={`${size} rounded-lg object-cover`} />;
-  if (icon) return <div className={`${size} rounded-lg bg-secondary flex items-center justify-center text-lg`}>{icon}</div>;
-  return <div className={`${size} rounded-lg bg-secondary flex items-center justify-center`}><Blocks className="w-4 h-4 text-muted-foreground" /></div>;
+function AppIcon({ icon, iconUrl, size = "h-12 w-12" }: { icon?: string; iconUrl?: string; size?: string }) {
+  if (iconUrl) return <img src={iconUrl} alt="" className={`${size} rounded-2xl object-cover border-2 border-background shadow-sm`} />;
+  if (icon) return <div className={`${size} rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-2xl shadow-inner`}>{icon}</div>;
+  return <div className={`${size} rounded-2xl bg-muted flex items-center justify-center border shadow-inner`}><Blocks className="h-6 w-6 text-muted-foreground/30" /></div>;
 }
 
 function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 32);
+  return name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "").slice(0, 32);
 }
 
 export function AppsPage() {
-  const [tab, setTab] = useState<"marketplace" | "my">("marketplace");
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const activeTab = location.pathname.split("/").pop() || "my";
+  const tab = activeTab === "marketplace" ? "marketplace" : "my";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">App 管理</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">发现和安装 App，或创建你自己的 App</p>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm border border-primary/20">
+            <Blocks className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">应用</h2>
+            <p className="text-muted-foreground">管理和安装应用。</p>
+          </div>
         </div>
       </div>
 
-      <div className="flex border rounded-lg overflow-hidden w-fit">
-        <button
-          className={`px-3 py-1 text-xs cursor-pointer ${tab === "marketplace" ? "bg-secondary" : "text-muted-foreground"}`}
-          onClick={() => setTab("marketplace")}
-        >
-          市场
-        </button>
-        <button
-          className={`px-3 py-1 text-xs cursor-pointer ${tab === "my" ? "bg-secondary" : "text-muted-foreground"}`}
-          onClick={() => setTab("my")}
-        >
-          我的
-        </button>
-      </div>
-
-      {tab === "marketplace" && <MarketplaceTab />}
-      {tab === "my" && <MyAppsTab />}
+      <Tabs value={tab} onValueChange={(v) => navigate(`/dashboard/apps/${v}`)}>
+        <TabsList>
+          <TabsTrigger value="my">我的应用</TabsTrigger>
+          <TabsTrigger value="marketplace">应用市场</TabsTrigger>
+        </TabsList>
+        <TabsContent value="my" className="flex flex-col gap-6 mt-6">
+          <MyAppsTab />
+        </TabsContent>
+        <TabsContent value="marketplace" className="flex flex-col gap-6 mt-6">
+          <MarketplaceTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-// ==================== Marketplace ====================
+// ==================== Marketplace (Store) ====================
 
 function MarketplaceTab() {
   const [apps, setApps] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [installApp, setInstallApp] = useState<any>(null);
 
   useEffect(() => {
-    api
-      .listApps({ listed: true })
-      .then((list) => setApps(list || []))
-      .catch(() => {});
+    setLoading(true);
+    api.listApps({ listed: true }).then(l => setApps(l || [])).finally(() => setLoading(false));
   }, []);
 
+  if (loading) return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {[1, 2, 3].map(i => <Card key={i} className="h-48 animate-pulse bg-muted/20 rounded-3xl" />)}
+    </div>
+  );
+
   return (
-    <div className="space-y-3">
-      {apps.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-8">暂无上架的 App</p>
-      )}
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-6">
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="搜索应用..." className="pl-10 h-10 rounded-full bg-card shadow-sm border-border/50" />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {apps.map((app) => (
-          <Card key={app.id} className="space-y-2">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <AppIcon icon={app.icon} iconUrl={app.icon_url} size="w-10 h-10" />
-                <div className="min-w-0">
-                  <p className="font-medium text-sm">{app.name}</p>
-                  {app.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {app.description}
-                    </p>
-                  )}
+          <Card key={app.id} className="group relative overflow-hidden rounded-[2rem] border-border/50 bg-card/50 transition-all hover:shadow-2xl hover:-translate-y-1">
+            <CardHeader className="pb-4">
+              <div className="flex items-start gap-4">
+                <AppIcon icon={app.icon} iconUrl={app.icon_url} />
+                <div className="min-w-0 space-y-1 pt-1">
+                  <CardTitle className="text-lg font-bold truncate group-hover:text-primary transition-colors">{app.name}</CardTitle>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="text-[9px] h-4 font-bold uppercase tracking-tighter bg-primary/5 text-primary border-none">
+                      {app.tools?.length || 0} TOOLS
+                    </Badge>
+                    <Badge variant="outline" className="text-[9px] h-4 font-bold uppercase tracking-tighter opacity-60">
+                      {app.status}
+                    </Badge>
+                  </div>
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setInstallApp(app)}>
-                <Download className="w-3.5 h-3.5 mr-1" /> 安装
+            </CardHeader>
+            <CardContent className="pb-6">
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 min-h-[2.5rem]">
+                {app.description || "暂无描述"}
+              </p>
+            </CardContent>
+            <CardFooter className="bg-muted/30 pt-4 flex justify-between items-center px-6">
+              <div className="flex items-center gap-3">
+                 <div className="flex -space-x-2">
+                    {[1, 2].map(i => <div key={i} className="h-6 w-6 rounded-full border-2 border-background bg-muted flex items-center justify-center"><Zap className="h-3 w-3 text-yellow-500" /></div>)}
+                 </div>
+                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Verified</span>
+              </div>
+              <Button size="sm" onClick={() => setInstallApp(app)} className="h-8 rounded-full px-4 gap-1.5 font-bold text-xs shadow-lg shadow-primary/10">
+                安装 <Download className="h-3 w-3" />
               </Button>
-            </div>
-            {app.tools?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {app.tools.map((tool: any) => (
-                  <Badge key={tool.name} variant="outline" className="text-xs font-mono">
-                    {tool.command ? `/${tool.command}` : tool.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {app.scopes?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {app.scopes.map((s: string) => (
-                  <span
-                    key={s}
-                    className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
+            </CardFooter>
           </Card>
         ))}
       </div>
 
-      {installApp && <InstallModal app={installApp} onClose={() => setInstallApp(null)} />}
+      {installApp && (
+        <Dialog open={!!installApp} onOpenChange={(o: boolean) => !o && setInstallApp(null)}>
+          <DialogContent className="sm:max-w-lg rounded-[2rem]">
+            <InstallFlowDialog app={installApp} onClose={() => setInstallApp(null)} />
+          </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   );
 }
 
-// ==================== Install Modal ====================
-
-function InstallModal({ app, onClose }: { app: any; onClose: () => void }) {
+function InstallFlowDialog({ app, onClose }: { app: any; onClose: () => void }) {
   const [bots, setBots] = useState<any[]>([]);
   const [botId, setBotId] = useState("");
   const [handle, setHandle] = useState(app.slug || "");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-
-  const tools = (app.tools || []) as any[];
-  const events = (app.events || []) as string[];
-  const scopes = (app.scopes || []) as string[];
+  const { toast } = useToast();
 
   useEffect(() => {
-    api.listBots().then((list) => {
-      const items = list || [];
-      setBots(items);
-      if (items.length > 0) setBotId(items[0].id);
-    }).catch(() => {});
+    api.listBots().then(l => {
+      const items = l || []; setBots(items);
+      if (items.length) setBotId(items[0].id);
+    });
   }, []);
 
   async function handleInstall() {
-    if (!botId) { setError("请选择一个 Bot"); return; }
-    setSaving(true); setError("");
+    if (!botId) return;
+    setSaving(true);
     try {
       await api.installApp(app.id, { bot_id: botId, handle: handle.trim() || undefined });
-      setSuccess(true);
-    } catch (err: any) { setError(err.message); }
+      toast({ title: "安装成功", description: `已安装到 ${app.name}。` });
+      onClose();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "安装失败", description: e.message });
+    }
     setSaving(false);
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-background border rounded-xl max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        {success ? (
-          <div className="p-4 space-y-3">
-            <p className="text-sm font-medium">安装成功！</p>
-            <p className="text-xs text-muted-foreground">
-              在 Bot 的 Apps 页面管理此安装。
-            </p>
-            <div className="flex justify-end">
-              <Button size="sm" onClick={onClose}>确认</Button>
-            </div>
+    <div className="space-y-6 py-2">
+      <DialogHeader>
+        <div className="flex items-center gap-4 mb-2">
+          <AppIcon icon={app.icon} iconUrl={app.icon_url} />
+          <div className="text-left">
+            <DialogTitle className="text-2xl font-bold">{app.name}</DialogTitle>
+            <DialogDescription className="text-sm">选择要安装到的账号。</DialogDescription>
           </div>
-        ) : (
-          <>
-            <div className="p-4 border-b">
-              <div className="flex items-center gap-2">
-                <AppIcon icon={app.icon} iconUrl={app.icon_url} />
-                <div>
-                  <span className="font-semibold text-sm">{app.name}</span>
-                  {app.description && <p className="text-xs text-muted-foreground">{app.description}</p>}
-                </div>
-              </div>
-            </div>
+        </div>
+      </DialogHeader>
 
-            <div className="p-4 space-y-3">
-              {/* Tools */}
-              {tools.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium mb-1">工具 / 命令</p>
-                  <div className="space-y-1">
-                    {tools.map((t: any, i: number) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        <Badge variant="outline" className="text-[10px] font-mono shrink-0">
-                          {t.command ? `/${t.command}` : t.name}
-                        </Badge>
-                        <span className="text-muted-foreground truncate">{t.description}</span>
-                      </div>
-                    ))}
-                  </div>
+      <div className="space-y-6">
+        <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 space-y-4">
+           <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+             <Shield className="h-3 w-3" /> 请求权限与功能
+           </h4>
+           <div className="space-y-3">
+              {app.tools?.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {app.tools.map((t: any) => (
+                    <Badge key={t.name} variant="secondary" className="bg-background font-mono text-[10px] lowercase">/{t.command || t.name}</Badge>
+                  ))}
                 </div>
               )}
-
-              {/* Events */}
-              {events.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium mb-1">事件订阅</p>
-                  <div className="flex flex-wrap gap-1">
-                    {events.map((e) => <Badge key={e} variant="secondary" className="text-[10px] font-mono">{e}</Badge>)}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">此 App 将接收所有匹配的消息事件</p>
-                </div>
-              )}
-
-              {/* Scopes */}
-              {scopes.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium mb-1">请求的权限</p>
-                  <div className="space-y-0.5">
-                    {scopes.map((s) => (
-                      <div key={s} className="text-xs flex items-center gap-1">
-                        <span className="font-mono">{s}</span>
-                        <span className="text-muted-foreground">
-                          {s === "messages.send" && "— 可通过 Bot 发送消息"}
-                          {s === "contacts.read" && "— 可读取联系人列表"}
-                          {s === "bot.read" && "— 可读取 Bot 信息"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Bot + Handle */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">选择 Bot</label>
-                <select value={botId} onChange={(e) => setBotId(e.target.value)}
-                  className="w-full h-8 rounded-md border border-input bg-transparent px-3 text-xs">
-                  {bots.length === 0 && <option value="">无可用 Bot</option>}
-                  {bots.map((b) => <option key={b.id} value={b.id}>{b.name || b.id}</option>)}
-                </select>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                <span>允许该应用接收特定提及消息并执行响应。</span>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Handle（用于 @提及，可清空）</label>
-                <Input placeholder="留空则只能通过 /command 触发" value={handle}
-                  onChange={(e) => setHandle(e.target.value)} className="h-8 text-xs font-mono" />
-              </div>
+           </div>
+        </div>
 
-              {error && <p className="text-xs text-destructive">{error}</p>}
-            </div>
-
-            <div className="p-4 border-t flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
-              <Button size="sm" onClick={handleInstall} disabled={saving}>{saving ? "..." : "确认安装"}</Button>
-            </div>
-          </>
-        )}
+        <div className="space-y-4">
+           <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground">选择账号</label>
+              <select value={botId} onChange={e => setBotId(e.target.value)} className="w-full h-11 px-4 rounded-xl border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20">
+                {bots.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+           </div>
+           <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground">Handle（可选）</label>
+              <Input value={handle} onChange={e => setHandle(e.target.value)} className="h-11 rounded-xl font-mono" placeholder="@mybot" />
+           </div>
+        </div>
       </div>
+
+      <DialogFooter className="pt-4">
+        <Button variant="ghost" onClick={onClose} className="rounded-full">取消</Button>
+        <Button onClick={handleInstall} disabled={saving || !botId} className="rounded-full px-8 gap-2 shadow-lg shadow-primary/20">
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          安装
+        </Button>
+      </DialogFooter>
     </div>
   );
 }
 
-// ==================== My Apps ====================
+// ==================== Studio (Development) ====================
 
 function MyAppsTab() {
   const navigate = useNavigate();
   const [apps, setApps] = useState<any[]>([]);
-  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState({ name: "", slug: "", description: "", icon: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const { toast } = useToast();
 
   async function load() {
-    try {
-      const list = await api.listApps();
-      setApps(list || []);
-    } catch {}
+    setLoading(true);
+    try { setApps((await api.listApps()) || []); } finally { setLoading(false); }
   }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  function handleNameChange(name: string) {
-    setForm((f) => ({ ...f, name, slug: slugify(name) }));
-  }
+  useEffect(() => { load(); }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    if (!form.name.trim()) {
-      setError("名称不能为空");
-      return;
-    }
-    if (!form.slug.trim()) {
-      setError("Slug 不能为空");
-      return;
-    }
-    setSaving(true);
+    if (!form.name.trim()) return;
     try {
       await api.createApp(form);
-      setForm({ name: "", slug: "", description: "", icon: "" });
-      setCreating(false);
+      toast({ title: "创建成功", description: "应用已创建。" });
+      setIsCreating(false);
       load();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "创建失败", description: e.message });
     }
-    setSaving(false);
   }
 
+  if (loading && apps.length === 0) return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {[1, 2, 3].map(i => <Card key={i} className="h-40 animate-pulse bg-muted/20 rounded-3xl" />)}
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        {!creating && (
-          <Button onClick={() => setCreating(true)} variant="outline" size="sm">
-            <Plus className="w-4 h-4 mr-1" /> 创建 App
-          </Button>
-        )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div />
+        <Dialog open={isCreating} onOpenChange={setIsCreating}>
+          <DialogTrigger asChild>
+            <Button className="rounded-full h-10 px-6 gap-2 shadow-lg shadow-primary/20">
+              <Plus className="h-4 w-4" /> 创建应用
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="rounded-[2rem]">
+            <DialogHeader><DialogTitle className="text-2xl font-bold">创建应用</DialogTitle><DialogDescription>填写基本信息。</DialogDescription></DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-5 pt-4">
+               <div className="space-y-2"><label className="text-xs font-bold uppercase text-muted-foreground">名称</label><Input placeholder="例如: 通知助手" value={form.name} onChange={e => { const n = e.target.value; setForm({...form, name: n, slug: slugify(n)}); }} /></div>
+               <div className="space-y-2"><label className="text-xs font-bold uppercase text-muted-foreground">Unique Slug</label><Input value={form.slug} onChange={e => setForm({...form, slug: e.target.value})} className="font-mono" /></div>
+               <div className="space-y-2"><label className="text-xs font-bold uppercase text-muted-foreground">描述</label><Input placeholder="这个应用是用来..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
+               <DialogFooter className="pt-4"><Button type="submit" className="w-full rounded-full h-11">创建</Button></DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {creating && (
-        <Card className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">创建新 App</h3>
-            <button
-              onClick={() => {
-                setCreating(false);
-                setError("");
-              }}
-              className="cursor-pointer"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </div>
-          <form onSubmit={handleCreate} className="space-y-2">
-            <Input
-              placeholder="App 名称"
-              value={form.name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              className="h-8 text-xs"
-            />
-            <Input
-              placeholder="Slug（URL 标识符）"
-              value={form.slug}
-              onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-              className="h-8 text-xs font-mono"
-            />
-            <Input
-              placeholder="描述（可选）"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="h-8 text-xs"
-            />
-            <Input
-              placeholder="图标 URL（可选）"
-              value={form.icon}
-              onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))}
-              className="h-8 text-xs"
-            />
-            <div className="flex items-center justify-between">
-              <div>{error && <span className="text-xs text-destructive">{error}</span>}</div>
-              <Button type="submit" size="sm" disabled={saving}>
-                {saving ? "..." : "创建"}
-              </Button>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {apps.map((app) => (
+          <Card key={app.id} className="group cursor-pointer rounded-3xl border-border/50 bg-card/50 transition-all hover:border-primary/30 hover:shadow-xl" onClick={() => navigate(`/dashboard/apps/${app.id}`)}>
+            <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
+              <div className="flex items-center gap-4">
+                <AppIcon icon={app.icon} iconUrl={app.icon_url} size="h-10 w-10" />
+                <div className="space-y-0.5">
+                  <CardTitle className="text-base font-bold">{app.name}</CardTitle>
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{app.slug}</p>
+                </div>
+              </div>
+              <Badge variant={app.status === "active" ? "default" : "secondary"} className="h-5 rounded-full text-[9px] px-2 font-bold">{app.status || "DRAFT"}</Badge>
+            </CardHeader>
+            <CardFooter className="bg-muted/30 pt-3 flex justify-between items-center px-6">
+               <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5"><Rocket className="h-3 w-3" /> {app.tools?.length || 0} Tools Configured</span>
+               <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </CardFooter>
+          </Card>
+        ))}
+        
+        {apps.length === 0 && (
+          <div className="col-span-full py-24 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center bg-muted/5">
+            <div className="h-20 w-20 rounded-3xl bg-background border shadow-sm flex items-center justify-center mb-6">
+              <Blocks className="h-10 w-10 text-primary/40" />
             </div>
-          </form>
-        </Card>
-      )}
-
-      {apps.map((app) => (
-        <Card
-          key={app.id}
-          className="flex items-center justify-between cursor-pointer hover:border-primary/50 transition-colors"
-          onClick={() => navigate(`/dashboard/apps/${app.id}`)}
-        >
-          <div className="flex items-center gap-3">
-            <AppIcon icon={app.icon} iconUrl={app.icon_url} />
-            <div>
-              <p className="font-medium text-sm">{app.name}</p>
-              <p className="text-xs text-muted-foreground font-mono mt-0.5">{app.slug}</p>
-              {app.description && (
-                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                  {app.description}
-                </p>
-              )}
-            </div>
+            <h3 className="text-xl font-bold">还没有应用</h3>
+            <p className="text-muted-foreground mt-2 max-w-sm">创建你的第一个应用。</p>
+            <Button variant="outline" className="mt-8 h-11 px-8 rounded-full" onClick={() => setIsCreating(true)}>创建应用</Button>
           </div>
-          <div className="flex items-center gap-2">
-            {app.tools?.length > 0 && (
-              <span className="text-xs text-muted-foreground">{app.tools.length} 个工具</span>
-            )}
-            <Badge variant={app.status === "active" ? "default" : "outline"}>
-              {app.status === "active" ? "启用" : app.status || "草稿"}
-            </Badge>
-          </div>
-        </Card>
-      ))}
-
-      {apps.length === 0 && !creating && (
-        <p className="text-center text-sm text-muted-foreground py-8">
-          点击上方按钮创建你的第一个 App
-        </p>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -1,204 +1,113 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 import { api } from "../lib/api";
-import { Link2, Unlink, Trash2, KeyRound, Plus, Sun, Moon, Monitor } from "lucide-react";
+import {
+  Link2,
+  Unlink,
+  Trash2,
+  KeyRound,
+  Plus,
+  Sun,
+  Moon,
+  Monitor,
+  User,
+  ShieldCheck,
+  Palette,
+  Github,
+  Check,
+  AlertCircle,
+  Loader2,
+  Smartphone,
+  Fingerprint,
+  Clock,
+} from "lucide-react";
 import { useTheme, type Theme } from "../lib/theme";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Badge } from "../components/ui/badge";
 
-const providerLabels: Record<string, string> = { github: "GitHub", linuxdo: "LinuxDo" };
+const providerLabels: Record<string, { label: string; icon: any }> = {
+  github: { label: "GitHub", icon: Github },
+  linuxdo: { label: "LinuxDo", icon: ShieldCheck },
+};
 
 export function SettingsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState<any>(null);
   const [oauthAccounts, setOauthAccounts] = useState<any[]>([]);
   const [oauthProviders, setOauthProviders] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const { theme, setTheme } = useTheme();
 
+  const activeTab = location.pathname.split("/").pop() || "profile";
+
   async function load() {
-    const [u, accounts, providers] = await Promise.all([
-      api.me(),
-      api.oauthAccounts(),
-      api.oauthProviders(),
-    ]);
-    setUser(u);
-    setOauthAccounts(accounts || []);
-    setOauthProviders(providers.providers || []);
+    setLoading(true);
+    try {
+      const [u, accounts, providers] = await Promise.all([
+        api.me(), api.oauthAccounts(), api.oauthProviders(),
+      ]);
+      setUser(u); setOauthAccounts(accounts || []); setOauthProviders(providers.providers || []);
+    } finally { setLoading(false); }
   }
 
   const [oauthMsg, setOauthMsg] = useState("");
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const bound = params.get("oauth_bound");
     const error = params.get("oauth_error");
-    if (bound) {
-      setOauthMsg(`${providerLabels[bound] || bound} 绑定成功`);
-    } else if (error === "already_linked") {
-      setOauthMsg("绑定失败：该第三方账号已被其他用户绑定，请联系管理员处理");
-    } else if (error === "bind_failed") {
-      setOauthMsg("绑定失败，请重试");
-    } else if (error) {
-      setOauthMsg("OAuth 错误：" + error);
-    }
+    if (bound) setOauthMsg(`${providerLabels[bound]?.label || bound} 绑定成功`);
+    else if (error === "already_linked") setOauthMsg("该第三方账号已被其他用户绑定");
     if (bound || error) {
-      window.history.replaceState({}, "", "/dashboard/settings");
+      window.history.replaceState({}, "", "/dashboard/settings/profile");
       load();
     }
   }, []);
 
-  if (!user) return null;
-
-  const themeOptions: { value: Theme; label: string; icon: React.ReactNode }[] = [
-    { value: "light", label: "浅色", icon: <Sun className="w-3.5 h-3.5" /> },
-    { value: "dark", label: "深色", icon: <Moon className="w-3.5 h-3.5" /> },
-    { value: "system", label: "跟随系统", icon: <Monitor className="w-3.5 h-3.5" /> },
-  ];
+  if (loading && !user) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">账号设置</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">密码、Passkey、第三方绑定</p>
-      </div>
+    <div className="space-y-8">
+      <div><h2 className="text-3xl font-bold tracking-tight">账号设置</h2><p className="text-muted-foreground">管理您的个人资料、安全选项和偏好。</p></div>
 
-      {oauthMsg && (
-        <div
-          className={`text-xs p-3 rounded-lg border ${oauthMsg.includes("失败") || oauthMsg.includes("错误") ? "border-destructive/30 bg-destructive/5 text-destructive" : "border-primary/30 bg-primary/5 text-primary"}`}
-        >
-          {oauthMsg}
-          <button onClick={() => setOauthMsg("")} className="ml-2 underline cursor-pointer">
-            关闭
-          </button>
-        </div>
-      )}
+      {oauthMsg && <div className={`flex items-center gap-3 p-4 rounded-xl border animate-in fade-in ${oauthMsg.includes("失败") ? "border-destructive/20 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary"}`}><span className="text-sm font-medium flex-1">{oauthMsg}</span><button onClick={() => setOauthMsg("")} className="text-xs font-bold uppercase opacity-70">关闭</button></div>}
 
-      {/* 外观 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>外观</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2" role="group" aria-label="主题选择">
-            {themeOptions.map(({ value, label, icon }) => (
-              <Button
-                key={value}
-                variant={theme === value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTheme(value)}
-                aria-pressed={theme === value}
-                aria-label={label}
-              >
-                {icon}
-                {label}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={(v: string) => navigate(`/dashboard/settings/${v}`)} className="space-y-6">
+        <TabsList className="bg-muted/50 p-1"><TabsTrigger value="profile" className="px-6">个人资料</TabsTrigger><TabsTrigger value="security" className="px-6">安全认证</TabsTrigger><TabsTrigger value="appearance" className="px-6">界面外观</TabsTrigger></TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>账号信息</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-1 text-sm">
-            <p>
-              <span className="text-muted-foreground">用户名：</span>
-              {user.username}
-            </p>
-            <p>
-              <span className="text-muted-foreground">显示名：</span>
-              {user.display_name}
-            </p>
-            <p>
-              <span className="text-muted-foreground">角色：</span>
-              {user.role === "superadmin"
-                ? "超级管理员"
-                : user.role === "admin"
-                  ? "管理员"
-                  : "成员"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="profile" className="m-0 space-y-6">
+          <Card className="border-border/50"><CardHeader><CardTitle>基本信息</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><label className="text-sm font-medium">用户名</label><Input value={user.username} disabled className="bg-muted/30 font-mono" /></div><div className="space-y-2"><label className="text-sm font-medium">角色</label><div className="pt-2"><Badge variant="secondary" className="uppercase text-[10px] tracking-wider font-bold">{user.role}</Badge></div></div></div></CardContent></Card>
+          {oauthProviders.length > 0 && (<Card className="border-border/50"><CardHeader><CardTitle>第三方绑定</CardTitle></CardHeader><CardContent className="space-y-3">{oauthProviders.map((provider) => { const account = oauthAccounts.find((a) => a.provider === provider); const linked = !!account; const Icon = providerLabels[provider]?.icon || ShieldCheck; return (<div key={provider} className="flex items-center justify-between p-4 rounded-xl border bg-muted/10"> <div className="flex items-center gap-4"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-background border shadow-sm"><Icon className="h-5 w-5" /></div><div><p className="text-sm font-bold uppercase">{providerLabels[provider]?.label || provider}</p><p className="text-xs text-muted-foreground">{linked ? `已关联：${account.username}` : "未连接"}</p></div></div> {linked ? (<Button variant="ghost" size="sm" className="text-destructive" onClick={async () => { if (!confirm(`解绑？`)) return; try { await api.unlinkOAuth(provider); load(); } catch (e: any) { alert(e.message); } }}><Unlink className="h-3.5 w-3.5 mr-2" /> 解绑</Button>) : (<Button variant="outline" size="sm" onClick={() => window.location.href = `/api/me/linked-accounts/${provider}/bind`}><Link2 className="h-3.5 w-3.5 mr-2" /> 绑定</Button>)}</div>); })}</CardContent></Card>)}
+        </TabsContent>
 
-      <ChangePasswordSection />
-      <PasskeySection />
+        <TabsContent value="security" className="m-0 space-y-6"><PasskeySection /><ChangePasswordSection /></TabsContent>
 
-      {/* OAuth binding */}
-      {oauthProviders.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>第三方账号绑定</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2">
-              {oauthProviders.map((provider) => {
-                const account = oauthAccounts.find((a) => a.provider === provider);
-                const linked = !!account;
-                return (
-                  <div
-                    key={provider}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-background"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="size-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                        <span className="text-xs font-medium">
-                          {(providerLabels[provider] || provider).charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {providerLabels[provider] || provider}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {linked ? `已绑定：${account.username}` : "未绑定"}
-                        </p>
-                      </div>
-                    </div>
-                    {linked ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          if (!confirm(`解绑 ${providerLabels[provider]}？`)) return;
-                          try {
-                            await api.unlinkOAuth(provider);
-                            load();
-                          } catch (e: any) {
-                            alert(e.message);
-                          }
-                        }}
-                      >
-                        <Unlink className="w-3.5 h-3.5 mr-1" /> 解绑
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          window.location.href = `/api/me/linked-accounts/${provider}/bind`;
-                        }}
-                      >
-                        <Link2 className="w-3.5 h-3.5 mr-1" /> 绑定
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="appearance" className="m-0">
+          <Card className="border-border/50 max-w-2xl"><CardHeader><CardTitle>主题</CardTitle></CardHeader><CardContent><div className="grid grid-cols-3 gap-4">{[{ value: "light", label: "浅色", icon: Sun }, { value: "dark", label: "深色", icon: Moon }, { value: "system", label: "系统", icon: Monitor }].map((item) => (<button key={item.value} onClick={() => setTheme(item.value as Theme)} className={`flex flex-col items-center gap-3 p-4 rounded-xl border transition-all ${theme === item.value ? "border-primary bg-primary/[0.03] ring-1 ring-primary" : "bg-muted/20 border-border/50"}`}><div className={`h-10 w-10 flex items-center justify-center rounded-full ${theme === item.value ? "bg-primary text-primary-foreground shadow-md" : "bg-background text-muted-foreground border"}`}><item.icon className="h-5 w-5" /></div><p className="text-xs font-bold">{item.label}</p></button>))}</div></CardContent></Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-// ==================== Change Password ====================
-
+// ... keep ChangePasswordSection and PasskeySection same ...
 function ChangePasswordSection() {
   const [oldPwd, setOldPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -209,61 +118,45 @@ function ChangePasswordSection() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setSuccess("");
-    if (newPwd.length < 8) {
-      setError("新密码至少 8 位");
-      return;
-    }
-    if (newPwd !== confirmPwd) {
-      setError("两次输入不一致");
-      return;
-    }
+    setError(""); setSuccess("");
+    if (newPwd.length < 8) return setError("新密码长度至少需要 8 位");
+    if (newPwd !== confirmPwd) return setError("两次输入的密码不一致");
     setSaving(true);
     try {
       await api.changePassword({ old_password: oldPwd, new_password: newPwd });
-      setOldPwd("");
-      setNewPwd("");
-      setConfirmPwd("");
-      setSuccess("密码已修改");
-    } catch (err: any) {
-      setError(err.message);
-    }
+      setOldPwd(""); setNewPwd(""); setConfirmPwd("");
+      setSuccess("您的登录密码已成功更新。");
+    } catch (err: any) { setError(err.message); }
     setSaving(false);
   }
 
   return (
-    <Card>
+    <Card className="border-border/50">
       <CardHeader>
-        <CardTitle>修改密码</CardTitle>
+        <CardTitle>修改登录密码</CardTitle>
+        <CardDescription>建议定期更换密码以增强安全性。</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          <Input
-            type="password"
-            placeholder="当前密码"
-            value={oldPwd}
-            onChange={(e) => setOldPwd(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="新密码（至少 8 位）"
-            value={newPwd}
-            onChange={(e) => setNewPwd(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="确认新密码"
-            value={confirmPwd}
-            onChange={(e) => setConfirmPwd(e.target.value)}
-          />
-          <div className="flex items-center justify-between">
-            <div>
-              {error && <span className="text-xs text-destructive">{error}</span>}
-              {success && <span className="text-xs text-primary">{success}</span>}
-            </div>
-            <Button type="submit" size="sm" disabled={saving}>
-              {saving ? "..." : "修改密码"}
+        <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+          <div className="space-y-2">
+            <label className="text-xs font-medium">当前密码</label>
+            <Input type="password" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} placeholder="••••••••" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium">新密码</label>
+            <Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="至少 8 位" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium">确认新密码</label>
+            <Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="再次输入新密码" />
+          </div>
+          
+          <div className="pt-2 flex flex-col gap-3">
+            {error && <p className="text-xs text-destructive font-medium flex items-center gap-1.5"><AlertCircle className="h-3 w-3" /> {error}</p>}
+            {success && <p className="text-xs text-green-600 font-medium flex items-center gap-1.5"><Check className="h-3 w-3" /> {success}</p>}
+            <Button type="submit" className="w-full sm:w-fit" disabled={saving || !oldPwd || !newPwd}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              更新密码
             </Button>
           </div>
         </form>
@@ -272,25 +165,18 @@ function ChangePasswordSection() {
   );
 }
 
-// ==================== Passkey ====================
-
 function PasskeySection() {
   const [passkeys, setPasskeys] = useState<any[]>([]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
 
   async function load() {
-    try {
-      setPasskeys((await api.listPasskeys()) || []);
-    } catch {}
+    try { setPasskeys((await api.listPasskeys()) || []); } catch {}
   }
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   async function handleAdd() {
-    setAdding(true);
-    setError("");
+    setAdding(true); setError("");
     try {
       const options = await api.passkeyBindBegin();
       options.publicKey.challenge = base64urlToBuffer(options.publicKey.challenge);
@@ -316,63 +202,62 @@ function PasskeySection() {
       );
       load();
     } catch (err: any) {
-      if (err.name !== "NotAllowedError") setError(err.message || "注册失败");
+      if (err.name !== "NotAllowedError") setError(err.message || "Passkey 注册失败");
     }
     setAdding(false);
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Passkey</CardTitle>
-        <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
-          <Button variant="outline" size="sm" onClick={handleAdd} disabled={adding}>
-            <Plus /> {adding ? "注册中..." : "添加 Passkey"}
-          </Button>
+    <Card className="border-border/50">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <div className="space-y-1.5">
+          <CardTitle className="flex items-center gap-2">
+            Passkeys <Badge className="bg-primary/10 text-primary border-none text-[9px]">RECOMMENDED</Badge>
+          </CardTitle>
+          <CardDescription>
+            使用生物识别（指纹、Face ID）或安全密钥进行登录，更安全、更快捷。
+          </CardDescription>
         </div>
+        <Button size="sm" onClick={handleAdd} disabled={adding} className="h-9">
+          {adding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+          注册 Passkey
+        </Button>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">
-            使用指纹、Face ID 或安全密钥登录，无需密码。
-          </p>
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          {passkeys.length === 0 ? (
-            <p className="text-xs text-muted-foreground">暂未绑定任何 Passkey</p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {passkeys.map((pk) => (
-                <div
-                  key={pk.id}
-                  className="flex items-center justify-between p-2 rounded-lg border bg-background"
-                >
-                  <div className="flex items-center gap-2">
-                    <KeyRound className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs font-mono">{pk.id.slice(0, 16)}...</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(pk.created_at * 1000).toLocaleDateString()}
-                      </p>
-                    </div>
+      <CardContent className="space-y-4">
+        {error && <div className="text-xs p-3 rounded-lg bg-destructive/5 text-destructive border border-destructive/10">{error}</div>}
+        
+        {passkeys.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center border rounded-xl bg-muted/5 border-dashed">
+             <Fingerprint className="h-10 w-10 text-muted-foreground opacity-20 mb-3" />
+             <p className="text-sm text-muted-foreground">您尚未绑定任何 Passkey 设备</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {passkeys.map((pk) => (
+              <div key={pk.id} className="flex items-center justify-between p-4 rounded-xl border bg-background group hover:border-primary/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-primary/5 text-primary">
+                    <Smartphone className="h-5 w-5" />
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={async () => {
-                      if (!confirm("删除此 Passkey？")) return;
-                      try {
-                        await api.deletePasskey(pk.id);
-                        load();
-                      } catch {}
-                    }}
-                  >
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
+                  <div>
+                    <p className="text-xs font-mono font-bold">{pk.id.slice(0, 12)}...</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 uppercase font-medium">
+                      <Clock className="h-2.5 w-2.5" /> {new Date(pk.created_at * 1000).toLocaleDateString()} 绑定
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={async () => {
+                    if (!confirm("确定要删除此 Passkey 吗？")) return;
+                    try { await api.deletePasskey(pk.id); load(); } catch {}
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

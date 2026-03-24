@@ -2,7 +2,37 @@ import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { api } from "../lib/api";
-import { RefreshCw, ChevronRight, ChevronDown, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
+import {
+  RefreshCw,
+  ChevronRight,
+  ChevronDown,
+  CheckCircle2,
+  XCircle,
+  MinusCircle,
+  Activity,
+  User,
+  Clock,
+  ExternalLink,
+  Info,
+  Layers,
+} from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface TraceSpan {
   id: number;
@@ -26,15 +56,14 @@ const kindColors: Record<string, string> = {
   server: "bg-green-500",
 };
 
-function StatusIcon({ code }: { code: string }) {
-  if (code === "ok") return <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />;
-  if (code === "error") return <XCircle className="w-3.5 h-3.5 text-destructive shrink-0" />;
-  return <MinusCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />;
+function StatusIcon({ code, size = "w-4 h-4" }: { code: string; size?: string }) {
+  if (code === "ok") return <CheckCircle2 className={`${size} text-green-500 shrink-0`} />;
+  if (code === "error") return <XCircle className={`${size} text-destructive shrink-0`} />;
+  return <MinusCircle className={`${size} text-muted-foreground shrink-0`} />;
 }
 
 function durationMs(span: TraceSpan): number {
-  if (span.end_time > span.start_time) return span.end_time - span.start_time;
-  return 0;
+  return span.end_time > span.start_time ? span.end_time - span.start_time : 0;
 }
 
 function buildTree(spans: TraceSpan[]): Map<string, TraceSpan[]> {
@@ -47,197 +76,199 @@ function buildTree(spans: TraceSpan[]): Map<string, TraceSpan[]> {
   return children;
 }
 
-function SpanRow({ span, depth, tree, expandedAttrs, toggleAttrs }: {
+function SpanNode({ span, depth, tree }: {
   span: TraceSpan;
   depth: number;
   tree: Map<string, TraceSpan[]>;
-  expandedAttrs: Set<string>;
-  toggleAttrs: (id: string) => void;
 }) {
   const children = tree.get(span.span_id) || [];
   const dur = durationMs(span);
-  const isExpanded = expandedAttrs.has(span.span_id);
-  const hasAttrs = (span.attributes && Object.keys(span.attributes).length > 0) ||
-    (span.events && span.events.length > 0) ||
-    span.status_message;
+  const [expanded, setExpanded] = useState(depth < 2);
 
   return (
-    <>
-      <div
-        className="flex items-center gap-2 text-xs py-1 hover:bg-secondary/50 rounded px-1 cursor-pointer"
-        style={{ paddingLeft: `${depth * 20 + 4}px` }}
-        onClick={() => hasAttrs && toggleAttrs(span.span_id)}
+    <div className="space-y-1">
+      <div 
+        className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded-md transition-colors cursor-pointer group"
+        style={{ marginLeft: `${depth * 16}px` }}
+        onClick={() => setExpanded(!expanded)}
       >
-        {hasAttrs ? (
-          isExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />
-        ) : (
-          <span className="w-3 shrink-0" />
-        )}
-        <StatusIcon code={span.status_code} />
-        <Badge variant="outline" className={`text-[9px] px-1 py-0 text-white shrink-0 ${kindColors[span.kind] || "bg-gray-400"}`}>
+        <div className="w-4 flex items-center justify-center">
+          {children.length > 0 && (
+            expanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />
+          )}
+        </div>
+        <StatusIcon code={span.status_code} size="w-3.5 h-3.5" />
+        <Badge variant="outline" className={`text-[9px] h-4 px-1 leading-none text-white ${kindColors[span.kind] || "bg-gray-400"}`}>
           {span.kind}
         </Badge>
-        <span className="font-mono truncate">{span.name}</span>
-        {dur > 0 && <span className="text-muted-foreground shrink-0 ml-auto">{dur}ms</span>}
+        <span className="text-[11px] font-mono font-medium truncate flex-1">{span.name}</span>
+        {dur > 0 && <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-muted group-hover:bg-background">{dur}ms</span>}
       </div>
 
-      {isExpanded && (
-        <div className="text-[10px] font-mono space-y-0.5 mb-1" style={{ paddingLeft: `${depth * 20 + 28}px` }}>
-          {span.status_message && (
-            <div className="text-destructive">error: {span.status_message}</div>
+      {expanded && (
+        <div className="space-y-1">
+          {span.attributes && Object.keys(span.attributes).length > 0 && (
+            <div className="ml-10 text-[10px] space-y-0.5 opacity-70">
+               {Object.entries(span.attributes).map(([k, v]) => (
+                 <div key={k} className="flex gap-2">
+                   <span className="text-blue-500 font-bold shrink-0">{k}:</span>
+                   <span className="truncate">{String(v)}</span>
+                 </div>
+               ))}
+            </div>
           )}
-          {span.attributes && Object.entries(span.attributes).map(([k, v]) => (
-            <div key={k} className="text-muted-foreground">
-              <span className="text-foreground/70">{k}:</span> {String(v)}
-            </div>
-          ))}
-          {span.events && span.events.map((ev, i) => (
-            <div key={i} className="text-muted-foreground">
-              <span className="text-amber-600">[event]</span> {ev.name}
-              {ev.attributes && Object.entries(ev.attributes).map(([k, v]) => (
-                <span key={k} className="ml-2">{k}={String(v)}</span>
-              ))}
-            </div>
+          {children.map((child) => (
+            <SpanNode key={child.span_id} span={child} depth={depth + 1} tree={tree} />
           ))}
         </div>
       )}
-
-      {children.map((child) => (
-        <SpanRow
-          key={child.span_id}
-          span={child}
-          depth={depth + 1}
-          tree={tree}
-          expandedAttrs={expandedAttrs}
-          toggleAttrs={toggleAttrs}
-        />
-      ))}
-    </>
+    </div>
   );
 }
 
 export function BotTracesTab({ botId }: { botId: string }) {
   const [rootSpans, setRootSpans] = useState<TraceSpan[]>([]);
-  const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [traceSpans, setTraceSpans] = useState<TraceSpan[]>([]);
-  const [expandedAttrs, setExpandedAttrs] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
   const [traceLoading, setTraceLoading] = useState(false);
 
   async function load() {
     setLoading(true);
-    try { setRootSpans((await api.listTraces(botId, 100)) || []); } catch {}
+    try {
+      const data = await api.listTraces(botId, 100);
+      setRootSpans(data || []);
+    } catch {}
     setLoading(false);
   }
 
   useEffect(() => { load(); }, [botId]);
 
-  async function toggleTrace(traceId: string) {
-    if (expandedTrace === traceId) {
-      setExpandedTrace(null);
-      setTraceSpans([]);
-      setExpandedAttrs(new Set());
-      return;
-    }
-    setExpandedTrace(traceId);
+  async function handleRowClick(traceId: string) {
+    setSelectedTraceId(traceId);
     setTraceLoading(true);
     try {
-      setTraceSpans((await api.getTrace(botId, traceId)) || []);
-    } catch {
-      setTraceSpans([]);
+      const spans = await api.getTrace(botId, traceId);
+      setTraceSpans(spans || []);
+    } finally {
+      setTraceLoading(false);
     }
-    setExpandedAttrs(new Set());
-    setTraceLoading(false);
-  }
-
-  function toggleAttrs(spanId: string) {
-    setExpandedAttrs((prev) => {
-      const next = new Set(prev);
-      if (next.has(spanId)) next.delete(spanId);
-      else next.add(spanId);
-      return next;
-    });
-  }
-
-  function formatTime(ms: number) {
-    return new Date(ms).toLocaleString();
   }
 
   return (
-    <div className="space-y-3 mt-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">Traces</p>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? "animate-spin" : ""}`} /> Refresh
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold">消息日志</h3>
+        </div>
+        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="h-8">
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> 刷新
         </Button>
       </div>
 
-      {rootSpans.length === 0 && !loading && (
-        <p className="text-center text-sm text-muted-foreground py-8">No traces yet</p>
-      )}
-
-      <div className="space-y-1">
-        {rootSpans.map((root) => {
-          const isOpen = expandedTrace === root.trace_id;
-          const dur = durationMs(root);
-          const sender = root.attributes?.["message.sender"] || "";
-          const content = root.attributes?.["message.content"] || "";
-          const msgType = root.attributes?.["message.type"] || "text";
-
-          return (
-            <div key={root.id} className="rounded-lg border bg-card overflow-hidden">
-              <div
-                className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-secondary/50"
-                onClick={() => toggleTrace(root.trace_id)}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <StatusIcon code={root.status_code} />
-                    <Badge variant={root.status_code === "error" ? "destructive" : "default"} className="text-[10px] shrink-0">
-                      {msgType}
-                    </Badge>
-                    <span className="text-xs font-mono truncate">{sender}</span>
-                    <span className="text-xs text-muted-foreground truncate">{content}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 text-[10px] text-muted-foreground">
-                  {dur > 0 && <span>{dur}ms</span>}
-                  <span>{formatTime(root.start_time)}</span>
-                </div>
-              </div>
-
-              {isOpen && (
-                <div className="border-t p-3 bg-background">
-                  <div className="text-[10px] text-muted-foreground mb-2 font-mono">
-                    trace: {root.trace_id}
-                  </div>
-                  {traceLoading ? (
-                    <p className="text-xs text-muted-foreground py-2">Loading spans...</p>
-                  ) : (
-                    <div>
-                      {(() => {
-                        const tree = buildTree(traceSpans);
-                        // Find root spans (parent_span_id is empty)
-                        const roots = traceSpans.filter((s) => !s.parent_span_id);
-                        return roots.map((s) => (
-                          <SpanRow
-                            key={s.span_id}
-                            span={s}
-                            depth={0}
-                            tree={tree}
-                            expandedAttrs={expandedAttrs}
-                            toggleAttrs={toggleAttrs}
-                          />
-                        ));
-                      })()}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="rounded-xl border bg-card/50 overflow-hidden shadow-sm">
+        <Table>
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              <TableHead className="w-[100px]">状态</TableHead>
+              <TableHead>发送者</TableHead>
+              <TableHead className="hidden md:table-cell">核心事件</TableHead>
+              <TableHead className="text-right">耗时</TableHead>
+              <TableHead className="text-right">时间</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : rootSpans.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic">
+                  暂无记录
+                </TableCell>
+              </TableRow>
+            ) : (
+              rootSpans.map((root) => {
+                const dur = durationMs(root);
+                const sender = root.attributes?.["message.sender"] || "System";
+                const content = root.attributes?.["message.content"] || root.name;
+                
+                return (
+                  <TableRow 
+                    key={root.id} 
+                    className="cursor-pointer group hover:bg-muted/50"
+                    onClick={() => handleRowClick(root.trace_id)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <StatusIcon code={root.status_code} size="w-3.5 h-3.5" />
+                        <Badge variant="secondary" className="text-[9px] h-4 leading-none uppercase">
+                          {root.attributes?.["message.type"] || "EXEC"}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs max-w-[120px] truncate">
+                      {sender}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">
+                      {content}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-[10px] text-muted-foreground">
+                      {dur > 0 ? `${dur}ms` : "<1ms"}
+                    </TableCell>
+                    <TableCell className="text-right text-[10px] text-muted-foreground">
+                      {new Date(root.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
+
+      <Sheet open={!!selectedTraceId} onOpenChange={(open: boolean) => !open && setSelectedTraceId(null)}>
+        <SheetContent className="sm:max-w-xl">
+          <SheetHeader className="mb-6">
+            <div className="flex items-center gap-2 mb-1 text-primary">
+              <Layers className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-widest">Trace Timeline</span>
+            </div>
+            <SheetTitle className="text-xl font-mono truncate">{selectedTraceId}</SheetTitle>
+            <SheetDescription>
+              点击节点展开查看详情。
+            </SheetDescription>
+          </SheetHeader>
+
+          {traceLoading ? (
+            <div className="space-y-4 py-8">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-[90%] ml-auto" />
+              <Skeleton className="h-8 w-[85%] ml-auto" />
+            </div>
+          ) : (
+            <ScrollArea className="h-[calc(100vh-12rem)] pr-4">
+              <div className="space-y-1">
+                {(() => {
+                  const tree = buildTree(traceSpans);
+                  const roots = traceSpans.filter((s) => !s.parent_span_id);
+                  return roots.map((s) => (
+                    <SpanNode key={s.span_id} span={s} depth={0} tree={tree} />
+                  ));
+                })()}
+              </div>
+            </ScrollArea>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
