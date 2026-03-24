@@ -76,7 +76,7 @@ func (s *Server) handleInstallApp(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/apps/{id}/installations
 func (s *Server) handleListInstallations(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}
@@ -105,7 +105,7 @@ func (s *Server) handleListInstallations(w http.ResponseWriter, r *http.Request)
 
 // GET /api/apps/{id}/installations/{iid}
 func (s *Server) handleGetInstallation(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}
@@ -120,7 +120,7 @@ func (s *Server) handleGetInstallation(w http.ResponseWriter, r *http.Request) {
 
 // PUT /api/apps/{id}/installations/{iid}
 func (s *Server) handleUpdateInstallation(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}
@@ -172,7 +172,7 @@ func (s *Server) handleUpdateInstallation(w http.ResponseWriter, r *http.Request
 
 // DELETE /api/apps/{id}/installations/{iid}
 func (s *Server) handleDeleteInstallation(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}
@@ -190,7 +190,7 @@ func (s *Server) handleDeleteInstallation(w http.ResponseWriter, r *http.Request
 
 // POST /api/apps/{id}/installations/{iid}/regenerate-token
 func (s *Server) handleRegenerateToken(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}
@@ -211,7 +211,7 @@ func (s *Server) handleRegenerateToken(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/apps/{id}/installations/{iid}/verify-url
 func (s *Server) handleVerifyURL(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}
@@ -237,15 +237,17 @@ func (s *Server) handleVerifyURL(w http.ResponseWriter, r *http.Request) {
 		"challenge": challenge,
 	})
 
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Post(inst.RequestURL, "application/json", bytes.NewReader(payload))
 	if err != nil {
+		slog.Error("verify-url: request failed", "inst", inst.ID, "url", inst.RequestURL, "err", err)
 		jsonError(w, "request failed: "+err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		slog.Error("verify-url: remote error", "inst", inst.ID, "url", inst.RequestURL, "status", resp.StatusCode)
 		jsonError(w, "remote returned HTTP "+strconv.Itoa(resp.StatusCode), http.StatusBadGateway)
 		return
 	}
@@ -254,11 +256,13 @@ func (s *Server) handleVerifyURL(w http.ResponseWriter, r *http.Request) {
 		Challenge string `json:"challenge"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		slog.Error("verify-url: invalid response", "inst", inst.ID, "url", inst.RequestURL, "err", err)
 		jsonError(w, "invalid response from remote", http.StatusBadGateway)
 		return
 	}
 
 	if result.Challenge != challenge {
+		slog.Error("verify-url: challenge mismatch", "inst", inst.ID)
 		jsonError(w, "challenge mismatch", http.StatusUnprocessableEntity)
 		return
 	}
@@ -274,7 +278,7 @@ func (s *Server) handleVerifyURL(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/apps/{id}/installations/{iid}/event-logs
 func (s *Server) handleAppEventLogs(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}
@@ -305,7 +309,7 @@ func (s *Server) handleAppEventLogs(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/apps/{id}/installations/{iid}/api-logs
 func (s *Server) handleAppAPILogs(w http.ResponseWriter, r *http.Request) {
-	app := s.requireApp(w, r)
+	app := s.requireAppForInstall(w, r)
 	if app == nil {
 		return
 	}

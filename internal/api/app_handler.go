@@ -298,9 +298,10 @@ func (s *Server) requireAppForInstall(w http.ResponseWriter, r *http.Request) *d
 	return app
 }
 
-// requireInstallation loads an installation by path IID and verifies it belongs to the app.
-// Returns the installation or nil (with error already written to w).
+// requireInstallation loads an installation by path IID and verifies it belongs to the app
+// and the current user owns the bot.
 func (s *Server) requireInstallation(w http.ResponseWriter, r *http.Request, appID string) *database.AppInstallation {
+	userID := auth.UserIDFromContext(r.Context())
 	iid := r.PathValue("iid")
 
 	inst, err := s.DB.GetInstallation(iid)
@@ -309,6 +310,13 @@ func (s *Server) requireInstallation(w http.ResponseWriter, r *http.Request, app
 		return nil
 	}
 	if inst.AppID != appID {
+		jsonError(w, "installation not found", http.StatusNotFound)
+		return nil
+	}
+
+	// Verify user owns the bot
+	bot, err := s.DB.GetBot(inst.BotID)
+	if err != nil || bot.UserID != userID {
 		jsonError(w, "installation not found", http.StatusNotFound)
 		return nil
 	}
