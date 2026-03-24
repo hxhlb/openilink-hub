@@ -335,6 +335,7 @@ function InstallationConfig({
 }) {
   const [handle, setHandle] = useState(inst.handle || "");
   const [requestUrl, setRequestUrl] = useState(inst.request_url || "");
+  const [eventsEnabled, setEventsEnabled] = useState(inst.config?.events_enabled || false);
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [msg, setMsg] = useState("");
@@ -348,6 +349,7 @@ function InstallationConfig({
         handle: handle.trim(),
         request_url: requestUrl.trim(),
         enabled: inst.enabled,
+        config: { events_enabled: eventsEnabled },
       });
       setMsg("已保存");
       onUpdate();
@@ -408,6 +410,13 @@ function InstallationConfig({
           </div>
         </div>
       </div>
+
+      {/* Events opt-in */}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="rounded" />
+        <span className="text-xs">接收消息事件</span>
+        <span className="text-[10px] text-muted-foreground">（开启后 App 将收到所有匹配的消息，不仅是命令）</span>
+      </label>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

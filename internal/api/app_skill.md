@@ -236,19 +236,34 @@ Your App should handle both modes:
 @app.route("/webhook", methods=["POST"])
 def handle():
     data = request.json
-    if data["type"] == "command":
-        cmd = data["event"]["data"]
-        args = cmd.get("args") or {}  # structured (from AI Agent)
-        text = cmd.get("text", "")     # free-form (from user)
 
-        if cmd["command"] == "pr":
-            repo = args.get("repo") or text.split()[0] if text else None
+    # URL verification
+    if data.get("type") == "url_verification":
+        return jsonify({"challenge": data["challenge"]})
+
+    # Route by event.type
+    event_type = data.get("event", {}).get("type", "")
+    event_data = data.get("event", {}).get("data", {})
+
+    if event_type == "command":
+        args = event_data.get("args") or {}   # structured (from AI Agent)
+        text = event_data.get("text", "")       # free-form (from user)
+
+        if event_data["command"] == "pr":
+            repo = args.get("repo") or (text.split()[0] if text else None)
             state = args.get("state", "open")
             return list_prs(repo, state)
-        elif cmd["command"] == "issue":
-            repo = args.get("repo") or text.split()[0] if text else None
+        elif event_data["command"] == "issue":
+            repo = args.get("repo") or (text.split()[0] if text else None)
             title = args.get("title") or " ".join(text.split()[1:])
             return create_issue(repo, title, args.get("body"))
+
+    elif event_type.startswith("message."):
+        # Handle message events (only if events_enabled in installation config)
+        content = event_data.get("content", "")
+        sender = event_data.get("sender", {})
+        # ...process message...
+
     return jsonify({"ok": True})
 ```
 
@@ -276,6 +291,8 @@ For media replies (future):
 | `message.voice` | Voice message |
 | `message.video` | Video message |
 | `message.file` | File message |
+
+**Important**: Message events are only delivered to installations that have `events_enabled: true` in their config. This is disabled by default — users must explicitly opt in when installing. Command/tool events (`event.type: "command"`) are always delivered regardless of this setting.
 
 ### Request Signing
 
@@ -475,16 +492,16 @@ def handle_event():
     if not verify_signature(request):
         return "invalid signature", 401
 
-    # Handle command
-    if data["type"] == "command":
-        cmd = data["event"]["data"]
-        if cmd["command"] == "github":
-            return jsonify({"reply": f"GitHub command received: {cmd['text']}"})
+    # Route by event.type
+    event_type = data.get("event", {}).get("type", "")
+    event_data = data.get("event", {}).get("data", {})
 
-    # Handle message
-    if data["type"] == "event_callback":
-        msg = data["event"]["data"]
-        # Process message...
+    if event_type == "command":
+        if event_data["command"] == "github":
+            return jsonify({"reply": f"GitHub command received: {event_data['text']}"})
+
+    elif event_type.startswith("message."):
+        # Only received if events_enabled is true on installation
         pass
 
     return jsonify({"ok": True})
@@ -577,10 +594,12 @@ func handleEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Handle command
-    if envelope["type"] == "command" {
-        event := envelope["event"].(map[string]any)
-        data := event["data"].(map[string]any)
+    // Route by event.type
+    event := envelope["event"].(map[string]any)
+    eventType, _ := event["type"].(string)
+    data, _ := event["data"].(map[string]any)
+
+    if eventType == "command" {
         json.NewEncoder(w).Encode(map[string]string{
             "reply": fmt.Sprintf("GitHub command: %s", data["text"]),
         })

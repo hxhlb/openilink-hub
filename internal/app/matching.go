@@ -105,6 +105,11 @@ func (d *Dispatcher) MatchEvent(botID string, eventType string) ([]database.AppI
 			continue
 		}
 
+		// Events require explicit opt-in at installation level
+		if !installationEventsEnabled(inst) {
+			continue
+		}
+
 		app, err := d.store().GetApp(inst.AppID)
 		if err != nil {
 			slog.Error("failed to get app for event matching",
@@ -211,4 +216,19 @@ func appSubscribesToEvent(app *database.App, eventType string) bool {
 		}
 	}
 	return false
+}
+
+// installationEventsEnabled checks if the installation has opted in to receive events.
+// Events are disabled by default; the user must explicitly enable via config.events_enabled.
+func installationEventsEnabled(inst database.AppInstallation) bool {
+	if len(inst.Config) == 0 {
+		return false
+	}
+	var cfg struct {
+		EventsEnabled bool `json:"events_enabled"`
+	}
+	if err := json.Unmarshal(inst.Config, &cfg); err != nil {
+		return false
+	}
+	return cfg.EventsEnabled
 }
