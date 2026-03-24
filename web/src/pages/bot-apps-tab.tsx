@@ -25,7 +25,17 @@ export function BotAppsTab({ botId }: { botId: string }) {
 
   async function loadApps() {
     try {
-      setApps((await api.listApps()) || []);
+      const [myApps, listedApps] = await Promise.all([
+        api.listApps(),
+        api.listApps({ listed: true }),
+      ]);
+      // Merge: my apps + listed apps (deduplicate by id)
+      const seen = new Set<string>();
+      const merged: any[] = [];
+      for (const a of [...(myApps || []), ...(listedApps || [])]) {
+        if (!seen.has(a.id)) { seen.add(a.id); merged.push(a); }
+      }
+      setApps(merged);
     } catch {}
   }
 
