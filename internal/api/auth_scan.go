@@ -142,11 +142,21 @@ func (s *Server) completeScanLogin(result *provider.BindPollResult, sendEvent fu
 		}
 	}
 
-	// 2. No bot_id match → find another bot from the same ilink_user_id
-	if userID == "" && creds.ILinkUserID != "" {
+	// 2. No bot_id match → find another bot from the same ilink_user_id → rebind it
+	if bot == nil && creds.ILinkUserID != "" {
 		sibling, _ := s.DB.FindBotByCredential("ilink_user_id", creds.ILinkUserID)
 		if sibling != nil {
 			userID = sibling.UserID
+			// Rebind the existing bot with the new credentials/provider_id
+			s.BotManager.StopBot(sibling.ID)
+			if err := s.DB.UpdateBotCredentials(sibling.ID, creds.BotID, result.Credentials); err != nil {
+				sendEvent("error", `{"message":"rebind failed"}`)
+				return
+			}
+			sibling.Credentials = result.Credentials
+			sibling.ProviderID = creds.BotID
+			sibling.Status = "connected"
+			bot = sibling
 		}
 	}
 

@@ -153,13 +153,15 @@ func (s *Server) handleBindStatus(w http.ResponseWriter, r *http.Request) {
 			j, _ := json.Marshal(map[string]string{"status": "refreshed", "qr_url": result.QRURL})
 			sendEvent("status", string(j))
 		case "confirmed":
-			// Extract iLink bot_id from credentials to check for existing bot
 			var creds struct {
-				BotID string `json:"bot_id"`
+				BotID       string `json:"bot_id"`
+				ILinkUserID string `json:"ilink_user_id"`
 			}
 			json.Unmarshal(result.Credentials, &creds)
 
 			var bot *database.Bot
+
+			// 1. Match by provider_id (exact bot_id)
 			if creds.BotID != "" {
 				existing, _ := s.DB.FindBotByProviderID("ilink", creds.BotID)
 				if existing != nil {
@@ -167,7 +169,6 @@ func (s *Server) handleBindStatus(w http.ResponseWriter, r *http.Request) {
 						sendEvent("error", `{"message":"this account is already bound by another user"}`)
 						return
 					}
-					// Same user rebinding: update credentials and restart
 					s.BotManager.StopBot(existing.ID)
 					if err := s.DB.UpdateBotCredentials(existing.ID, creds.BotID, result.Credentials); err != nil {
 						slog.Error("rebind update failed", "err", err)
@@ -177,6 +178,23 @@ func (s *Server) handleBindStatus(w http.ResponseWriter, r *http.Request) {
 					existing.Credentials = result.Credentials
 					existing.Status = "connected"
 					bot = existing
+				}
+			}
+
+			// 2. Match by ilink_user_id (same WeChat user, new bot_id)
+			if bot == nil && creds.ILinkUserID != "" {
+				sibling, _ := s.DB.FindBotByCredential("ilink_user_id", creds.ILinkUserID)
+				if sibling != nil && sibling.UserID == entry.UserID {
+					s.BotManager.StopBot(sibling.ID)
+					if err := s.DB.UpdateBotCredentials(sibling.ID, creds.BotID, result.Credentials); err != nil {
+						slog.Error("rebind update failed", "err", err)
+						sendEvent("error", `{"message":"rebind failed"}`)
+						return
+					}
+					sibling.Credentials = result.Credentials
+					sibling.ProviderID = creds.BotID
+					sibling.Status = "connected"
+					bot = sibling
 				}
 			}
 
