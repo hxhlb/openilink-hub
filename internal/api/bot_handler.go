@@ -121,7 +121,6 @@ func (s *Server) handleBindStart(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleBindStatus(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("sessionID")
-	enableAI := r.URL.Query().Get("enable_ai") == "true"
 
 	ilinkProvider.PendingBinds.Lock()
 	entry, ok := ilinkProvider.PendingBinds.M[sessionID]
@@ -240,11 +239,7 @@ func (s *Server) handleBindStatus(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				// Auto-create default channel for new bots only
-				var aiCfg *store.AIConfig
-				if enableAI {
-					aiCfg = &store.AIConfig{Enabled: true, Source: "builtin"}
-				}
-				s.Store.CreateChannel(bot.ID, "默认", "", nil, aiCfg)
+				s.Store.CreateChannel(bot.ID, "默认", "", nil, nil)
 			}
 
 			s.BotManager.StartBot(context.Background(), bot)
@@ -520,6 +515,54 @@ func parseSendRequest(r *http.Request) (provider.OutboundMessage, string, error)
 		Recipient: req.Recipient,
 		Text:      req.Text,
 	}, "text", nil
+}
+
+// PUT /api/bots/{id}/default-channel-ai
+func (s *Server) handleSetDefaultChannelAI(w http.ResponseWriter, r *http.Request) {
+	botID := r.PathValue("id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	bot, err := s.Store.GetBot(botID)
+	if err != nil || bot.UserID != userID {
+		jsonError(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	channels, err := s.Store.ListChannelsByBot(botID)
+	if err != nil || len(channels) == 0 {
+		jsonError(w, "no channels found", http.StatusNotFound)
+		return
+	}
+
+	// Find the default channel (named "默认"), fall back to first.
+	var ch *store.Channel
+	for i := range channels {
+		if channels[i].Name == "默认" {
+			ch = &channels[i]
+			break
+		}
+	}
+	if ch == nil {
+		ch = &channels[0]
+	}
+
+	ai := &store.AIConfig{Enabled: req.Enabled}
+	if req.Enabled {
+		ai.Source = "builtin"
+	}
+	if err := s.Store.UpdateChannel(ch.ID, ch.Name, ch.Handle, &ch.FilterRule, ai, &ch.WebhookConfig, ch.Enabled); err != nil {
+		jsonError(w, "update failed", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w)
 }
 
 func (s *Server) handleBotContacts(w http.ResponseWriter, r *http.Request) {
