@@ -21,6 +21,23 @@
 
 ---
 
+## 快速开始
+
+```bash
+# 一键安装
+curl -fsSL https://raw.githubusercontent.com/openilink/openilink-hub/main/install.sh | sh
+
+# 启动
+oih
+
+# 或使用 Docker
+docker run -d -p 9800:9800 ghcr.io/openilink/openilink-hub:latest
+```
+
+访问 `http://localhost:9800`，**首个注册用户自动成为管理员**。更多部署方式见 [部署指南](#部署指南)。
+
+---
+
 ## 这是什么？
 
 2026 年 3 月，微信正式推出 **ClawBot 插件**，底层协议叫 **iLink（智联）**，接入域名为 `ilinkai.weixin.qq.com` —— 微信官方首次开放个人号的 Bot API，你可以**合法地**让程序收发微信消息了。
@@ -124,34 +141,22 @@ flowchart TB
     end
 ```
 
-## 快速开始
+## 部署指南
 
-### 一键安装（推荐）
+### 数据存储
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/openilink/openilink-hub/main/install.sh | sh
-```
-
-安装完成后：
-
-```bash
-# 注册为系统服务（开机自启）
-oih install
-
-# 或直接前台运行
-oih
-```
-
-访问 `http://localhost:9800`，**首个注册用户自动成为管理员**。
-
-数据库文件自动存储在平台标准目录：
+默认使用内置 SQLite，数据库文件自动存储在平台标准目录：
 - Linux: `~/.local/share/openilink-hub/openilink.db`
 - macOS: `~/Library/Application Support/openilink-hub/openilink.db`
+- root/service: `/var/lib/openilink-hub/openilink.db`
 
-### Docker
+设置 `DATABASE_URL=postgres://...` 可切换到 PostgreSQL。
+
+### 注册为系统服务
 
 ```bash
-docker run -d -p 9800:9800 ghcr.io/openilink/openilink-hub:latest
+oih install                 # 安装 systemd (Linux) / launchd (macOS) 服务
+oih uninstall               # 卸载服务
 ```
 
 ### Docker Compose（PostgreSQL + MinIO）
