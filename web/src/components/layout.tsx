@@ -349,6 +349,7 @@ export function Layout() {
                     <a
                       href="https://github.com/openilink/openilink-hub"
                       target="_blank"
+                      rel="noopener noreferrer"
                       className="cursor-pointer font-medium"
                     >
                       <Github className="mr-2 h-4 w-4" />
@@ -428,6 +429,7 @@ export function Layout() {
             <div className="hidden lg:flex relative items-center group">
               <Search className="absolute left-3 size-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
+                aria-label="搜索"
                 placeholder="搜索..."
                 className="h-9 w-64 rounded-full bg-muted/50 border-transparent pl-9 pr-4 text-xs font-medium focus:bg-background focus:border-border transition-all outline-none"
               />
