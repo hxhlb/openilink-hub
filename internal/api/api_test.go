@@ -1,0 +1,768 @@
+package api
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/openilink/openilink-hub/internal/auth"
+	"github.com/openilink/openilink-hub/internal/config"
+	"github.com/openilink/openilink-hub/internal/store"
+	"github.com/openilink/openilink-hub/internal/store/sqlite"
+)
+
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
+
+// testEnv bundles a running httptest.Server, the underlying store, and a
+// pre-created admin user + session cookie for authenticated dashboard requests.
+type testEnv struct {
+	ts      *httptest.Server
+	store   store.Store
+	user    *store.User
+	cookie  *http.Cookie
+	handler http.Handler
+}
+
+func setupTestEnv(t *testing.T) *testEnv {
+	t.Helper()
+
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	s, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.Open: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+
+	// Create an admin user.
+	u, err := s.CreateUserFull("testadmin", "", "Test Admin", "hashed", store.RoleAdmin)
+	if err != nil {
+		t.Fatalf("CreateUserFull: %v", err)
+	}
+	// Ensure user is active.
+	_ = s.UpdateUserStatus(u.ID, store.StatusActive)
+
+	// Create a session so dashboard (cookie-auth) requests work.
+	sessionToken, err := auth.CreateSession(s, u.ID)
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	cookie := &http.Cookie{Name: "session", Value: sessionToken}
+
+	srv := &Server{
+		Store:       s,
+		Config:      &config.Config{RPOrigin: "http://localhost"},
+		OAuthStates: newOAuthStateStore(),
+	}
+
+	handler := srv.Handler()
+	ts := httptest.NewServer(handler)
+	t.Cleanup(ts.Close)
+
+	return &testEnv{
+		ts:      ts,
+		store:   s,
+		user:    u,
+		cookie:  cookie,
+		handler: handler,
+	}
+}
+
+// doJSON is a helper that sends a JSON request to the httptest server and
+// returns the response. It supports optional cookies and auth headers.
+func doJSON(t *testing.T, ts *httptest.Server, method, path string, body any, opts ...func(*http.Request)) *http.Response {
+	t.Helper()
+	var bodyReader *bytes.Reader
+	if body != nil {
+		b, _ := json.Marshal(body)
+		bodyReader = bytes.NewReader(b)
+	} else {
+		bodyReader = bytes.NewReader(nil)
+	}
+	req, err := http.NewRequest(method, ts.URL+path, bodyReader)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, opt := range opts {
+		opt(req)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	return resp
+}
+
+func withCookie(c *http.Cookie) func(*http.Request) {
+	return func(r *http.Request) { r.AddCookie(c) }
+}
+
+func withBearer(token string) func(*http.Request) {
+	return func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+token) }
+}
+
+func decodeJSON(t *testing.T, resp *http.Response) map[string]any {
+	t.Helper()
+	var m map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	resp.Body.Close()
+	return m
+}
+
+// createTestBot creates a bot owned by the given user via the store.
+func createTestBot(t *testing.T, s store.Store, userID, name string) *store.Bot {
+	t.Helper()
+	b, err := s.CreateBot(userID, name, "test", "", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("CreateBot: %v", err)
+	}
+	return b
+}
+
+// createTestApp creates an app with the given scopes via the store.
+func createTestApp(t *testing.T, s store.Store, ownerID, name, slug string, scopes []string) *store.App {
+	t.Helper()
+	scopesJSON, _ := json.Marshal(scopes)
+	app, err := s.CreateApp(&store.App{
+		OwnerID: ownerID,
+		Name:    name,
+		Slug:    slug,
+		Scopes:  scopesJSON,
+	})
+	if err != nil {
+		t.Fatalf("CreateApp(%q): %v", name, err)
+	}
+	return app
+}
+
+// installTestApp installs an app on a bot via the store and returns the installation.
+func installTestApp(t *testing.T, s store.Store, appID, botID string) *store.AppInstallation {
+	t.Helper()
+	inst, err := s.InstallApp(appID, botID)
+	if err != nil {
+		t.Fatalf("InstallApp: %v", err)
+	}
+	return inst
+}
+
+// ---------------------------------------------------------------------------
+// Test: Bot API scope checks (app_token auth)
+// ---------------------------------------------------------------------------
+
+func TestBotAPI_ScopeChecks(t *testing.T) {
+	env := setupTestEnv(t)
+	bot := createTestBot(t, env.store, env.user.ID, "scope-bot")
+
+	// App with only message:write scope.
+	appMsgOnly := createTestApp(t, env.store, env.user.ID, "msg-app", "msg-app", []string{"message:write"})
+	instMsgOnly := installTestApp(t, env.store, appMsgOnly.ID, bot.ID)
+
+	// App with all three scopes.
+	appAll := createTestApp(t, env.store, env.user.ID, "all-app", "all-app",
+		[]string{"message:write", "contact:read", "bot:read"})
+	instAll := installTestApp(t, env.store, appAll.ID, bot.ID)
+
+	t.Run("message:write scope allows send", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/bot/v1/message/send",
+			map[string]string{"to": "user1", "content": "hello"},
+			withBearer(instMsgOnly.AppToken))
+		defer resp.Body.Close()
+		// Scope check should pass. We expect some non-403 error because
+		// BotManager is nil (no live bot). 503 or panic-recovery 500 are OK.
+		if resp.StatusCode == http.StatusForbidden {
+			body := decodeJSON(t, resp)
+			t.Fatalf("expected scope check to pass, got 403: %v", body)
+		}
+	})
+
+	t.Run("missing contact:read scope denied", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/bot/v1/contact", nil,
+			withBearer(instMsgOnly.AppToken))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 for missing contact:read scope, got %d", resp.StatusCode)
+		}
+		body := decodeJSON(t, resp)
+		if msg, _ := body["error"].(string); msg != "missing scope: contact:read" {
+			t.Errorf("unexpected error message: %q", msg)
+		}
+	})
+
+	t.Run("missing bot:read scope denied", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/bot/v1/info", nil,
+			withBearer(instMsgOnly.AppToken))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 for missing bot:read scope, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("all scopes allow contact endpoint", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/bot/v1/contact", nil,
+			withBearer(instAll.AppToken))
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusForbidden {
+			t.Fatalf("expected scope check to pass for contact:read, got 403")
+		}
+		// 200 or 500 (if store query fails) are both acceptable.
+	})
+
+	t.Run("all scopes allow bot info endpoint", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/bot/v1/info", nil,
+			withBearer(instAll.AppToken))
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusForbidden {
+			t.Fatalf("expected scope check to pass for bot:read, got 403")
+		}
+	})
+
+	t.Run("backward compat paths also check scopes", func(t *testing.T) {
+		// /bot/v1/contacts (old path) with missing scope
+		resp := doJSON(t, env.ts, "GET", "/bot/v1/contacts", nil,
+			withBearer(instMsgOnly.AppToken))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("old path /bot/v1/contacts should deny missing scope, got %d", resp.StatusCode)
+		}
+
+		// /bot/v1/bot (old path) with missing scope
+		resp2 := doJSON(t, env.ts, "GET", "/bot/v1/bot", nil,
+			withBearer(instMsgOnly.AppToken))
+		defer resp2.Body.Close()
+		if resp2.StatusCode != http.StatusForbidden {
+			t.Errorf("old path /bot/v1/bot should deny missing scope, got %d", resp2.StatusCode)
+		}
+	})
+
+	t.Run("invalid token returns 401", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/bot/v1/contact", nil,
+			withBearer("totally-invalid-token"))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("expected 401 for invalid token, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("missing auth header returns 401", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/bot/v1/contact", nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("expected 401 for missing header, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("disabled installation returns 403", func(t *testing.T) {
+		// Disable the installation.
+		_ = env.store.UpdateInstallation(instMsgOnly.ID, instMsgOnly.Handle, instMsgOnly.Config, instMsgOnly.Scopes, false)
+
+		resp := doJSON(t, env.ts, "POST", "/bot/v1/message/send",
+			map[string]string{"to": "user1", "content": "hello"},
+			withBearer(instMsgOnly.AppToken))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 for disabled installation, got %d", resp.StatusCode)
+		}
+
+		// Re-enable for other tests.
+		_ = env.store.UpdateInstallation(instMsgOnly.ID, instMsgOnly.Handle, instMsgOnly.Config, instMsgOnly.Scopes, true)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Test: App CRUD via dashboard API (session auth)
+// ---------------------------------------------------------------------------
+
+func TestAppAPI_CRUD(t *testing.T) {
+	env := setupTestEnv(t)
+
+	var createdAppID string
+
+	t.Run("create app", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/api/apps", map[string]any{
+			"name":   "My Test App",
+			"slug":   "my-test-app",
+			"scopes": []string{"message:write", "bot:read"},
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			body := decodeJSON(t, resp)
+			t.Fatalf("expected 201, got %d: %v", resp.StatusCode, body)
+		}
+		body := decodeJSON(t, resp)
+		createdAppID, _ = body["id"].(string)
+		if createdAppID == "" {
+			t.Fatal("created app has no id")
+		}
+		if slug, _ := body["slug"].(string); slug != "my-test-app" {
+			t.Errorf("slug = %q, want %q", slug, "my-test-app")
+		}
+	})
+
+	t.Run("get app", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/api/apps/"+createdAppID, nil,
+			withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+		body := decodeJSON(t, resp)
+		if name, _ := body["name"].(string); name != "My Test App" {
+			t.Errorf("name = %q, want %q", name, "My Test App")
+		}
+	})
+
+	t.Run("update app", func(t *testing.T) {
+		newName := "Updated App"
+		resp := doJSON(t, env.ts, "PUT", "/api/apps/"+createdAppID, map[string]any{
+			"name":   &newName,
+			"scopes": []string{"message:write", "contact:read"},
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body := decodeJSON(t, resp)
+			t.Fatalf("expected 200, got %d: %v", resp.StatusCode, body)
+		}
+
+		// Verify update persisted.
+		app, _ := env.store.GetApp(createdAppID)
+		if app.Name != "Updated App" {
+			t.Errorf("name after update = %q, want %q", app.Name, "Updated App")
+		}
+	})
+
+	t.Run("marketplace app cannot be edited", func(t *testing.T) {
+		// Create a marketplace (registry) app directly via store.
+		mApp, err := env.store.CreateApp(&store.App{
+			OwnerID:  env.user.ID,
+			Name:     "Marketplace App",
+			Slug:     "marketplace-app",
+			Registry: "https://registry.example.com",
+		})
+		if err != nil {
+			t.Fatalf("create marketplace app: %v", err)
+		}
+
+		resp := doJSON(t, env.ts, "PUT", "/api/apps/"+mApp.ID, map[string]any{
+			"name": "Hacked Name",
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 for marketplace app edit, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("delete app", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "DELETE", "/api/apps/"+createdAppID, nil,
+			withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+
+		// Verify deleted.
+		_, err := env.store.GetApp(createdAppID)
+		if err == nil {
+			t.Error("app should be deleted")
+		}
+	})
+
+	t.Run("create app with invalid slug fails", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/api/apps", map[string]any{
+			"name": "Bad Slug",
+			"slug": "-bad-",
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400 for invalid slug, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("create app without name fails", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/api/apps", map[string]any{
+			"slug": "no-name-app",
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400 for missing name, got %d", resp.StatusCode)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Test: Unified install endpoint (POST /api/bots/{id}/apps)
+// ---------------------------------------------------------------------------
+
+func TestUnifiedInstall(t *testing.T) {
+	env := setupTestEnv(t)
+	bot := createTestBot(t, env.store, env.user.ID, "install-bot")
+
+	t.Run("template install creates builtin app", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/api/bots/"+bot.ID+"/apps", map[string]any{
+			"template_slug": "ws-test-app",
+			"name":          "WS Test App",
+			"description":   "A test app",
+			"scopes":        []string{"message:write"},
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			body := decodeJSON(t, resp)
+			t.Fatalf("expected 201, got %d: %v", resp.StatusCode, body)
+		}
+		body := decodeJSON(t, resp)
+
+		// Verify the created app has registry=builtin.
+		appID, _ := body["app_id"].(string)
+		if appID == "" {
+			t.Fatal("installation has no app_id")
+		}
+		app, err := env.store.GetApp(appID)
+		if err != nil {
+			t.Fatalf("GetApp: %v", err)
+		}
+		if app.Registry != "builtin" {
+			t.Errorf("registry = %q, want %q", app.Registry, "builtin")
+		}
+		if app.Slug != "ws-test-app" {
+			t.Errorf("slug = %q, want %q", app.Slug, "ws-test-app")
+		}
+	})
+
+	t.Run("second template install reuses same app", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/api/bots/"+bot.ID+"/apps", map[string]any{
+			"template_slug": "ws-test-app",
+			"name":          "WS Test App",
+			"scopes":        []string{"message:write"},
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			body := decodeJSON(t, resp)
+			t.Fatalf("expected 201, got %d: %v", resp.StatusCode, body)
+		}
+
+		// There should be only one app with slug "ws-test-app" and registry "builtin".
+		app, _ := env.store.GetAppBySlug("ws-test-app", "builtin")
+		if app == nil {
+			t.Fatal("app not found by slug")
+		}
+	})
+
+	t.Run("install by app_id", func(t *testing.T) {
+		app := createTestApp(t, env.store, env.user.ID, "Direct App", "direct-app",
+			[]string{"message:write"})
+
+		resp := doJSON(t, env.ts, "POST", "/api/bots/"+bot.ID+"/apps", map[string]any{
+			"app_id": app.ID,
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			body := decodeJSON(t, resp)
+			t.Fatalf("expected 201, got %d: %v", resp.StatusCode, body)
+		}
+	})
+
+	t.Run("handle conflict returns 409", func(t *testing.T) {
+		app := createTestApp(t, env.store, env.user.ID, "Handle App", "handle-app",
+			[]string{"message:write"})
+
+		// First install with a handle.
+		resp := doJSON(t, env.ts, "POST", "/api/bots/"+bot.ID+"/apps", map[string]any{
+			"app_id": app.ID,
+			"handle": "myhandle",
+		}, withCookie(env.cookie))
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("first install expected 201, got %d", resp.StatusCode)
+		}
+
+		// Second install with the same handle should conflict.
+		app2 := createTestApp(t, env.store, env.user.ID, "Handle App2", "handle-app2",
+			[]string{"message:write"})
+		resp2 := doJSON(t, env.ts, "POST", "/api/bots/"+bot.ID+"/apps", map[string]any{
+			"app_id": app2.ID,
+			"handle": "myhandle",
+		}, withCookie(env.cookie))
+		defer resp2.Body.Close()
+
+		if resp2.StatusCode != http.StatusConflict {
+			t.Errorf("expected 409 for handle conflict, got %d", resp2.StatusCode)
+		}
+	})
+
+	t.Run("missing all IDs returns 400", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/api/bots/"+bot.ID+"/apps", map[string]any{},
+			withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("nonexistent bot returns 404", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "POST", "/api/bots/nonexistent-id/apps", map[string]any{
+			"template_slug": "ws-test-app",
+			"name":          "X",
+		}, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("expected 404 for nonexistent bot, got %d", resp.StatusCode)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Test: Slug uniqueness via API
+// ---------------------------------------------------------------------------
+
+func TestSlugUniqueness(t *testing.T) {
+	env := setupTestEnv(t)
+
+	t.Run("duplicate local slug returns 409", func(t *testing.T) {
+		// First app succeeds.
+		resp := doJSON(t, env.ts, "POST", "/api/apps", map[string]any{
+			"name": "First App",
+			"slug": "unique-slug",
+		}, withCookie(env.cookie))
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("first create expected 201, got %d", resp.StatusCode)
+		}
+
+		// Second app with same slug should fail.
+		resp2 := doJSON(t, env.ts, "POST", "/api/apps", map[string]any{
+			"name": "Second App",
+			"slug": "unique-slug",
+		}, withCookie(env.cookie))
+		defer resp2.Body.Close()
+
+		if resp2.StatusCode != http.StatusConflict {
+			t.Errorf("expected 409 for duplicate slug, got %d", resp2.StatusCode)
+		}
+	})
+
+	t.Run("builtin app with same slug as local succeeds", func(t *testing.T) {
+		// Create a local app.
+		resp := doJSON(t, env.ts, "POST", "/api/apps", map[string]any{
+			"name": "Local App",
+			"slug": "shared-slug",
+		}, withCookie(env.cookie))
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("local create expected 201, got %d", resp.StatusCode)
+		}
+
+		// Create a builtin app with the same slug directly via store
+		// (builtin apps are created via template install, not the API).
+		_, err := env.store.CreateApp(&store.App{
+			OwnerID:  env.user.ID,
+			Name:     "Builtin App",
+			Slug:     "shared-slug",
+			Registry: "builtin",
+		})
+		if err != nil {
+			t.Fatalf("expected builtin app creation to succeed, got: %v", err)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Test: Session auth edge cases
+// ---------------------------------------------------------------------------
+
+func TestSessionAuth(t *testing.T) {
+	env := setupTestEnv(t)
+
+	t.Run("no cookie returns 401", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/api/apps", nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("invalid session token returns 401", func(t *testing.T) {
+		badCookie := &http.Cookie{Name: "session", Value: "invalid-token-xyz"}
+		resp := doJSON(t, env.ts, "GET", "/api/apps", nil, withCookie(badCookie))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("expired session returns 401", func(t *testing.T) {
+		// Create an already-expired session.
+		expiredToken := "expired-session-token-123"
+		_ = env.store.CreateSession(expiredToken, env.user.ID, time.Now().Add(-1*time.Hour))
+
+		expiredCookie := &http.Cookie{Name: "session", Value: expiredToken}
+		resp := doJSON(t, env.ts, "GET", "/api/apps", nil, withCookie(expiredCookie))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("expected 401 for expired session, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("valid session returns 200", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/api/apps", nil, withCookie(env.cookie))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("expected 200, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("disabled user returns 403", func(t *testing.T) {
+		// Create a disabled user with a valid session.
+		u2, _ := env.store.CreateUserFull("disabled-user", "", "Disabled", "hashed", store.RoleMember)
+		_ = env.store.UpdateUserStatus(u2.ID, store.StatusDisabled)
+		tok, _ := auth.CreateSession(env.store, u2.ID)
+		disabledCookie := &http.Cookie{Name: "session", Value: tok}
+
+		resp := doJSON(t, env.ts, "GET", "/api/apps", nil, withCookie(disabledCookie))
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 for disabled user, got %d", resp.StatusCode)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Test: Bot API with legacy vs new scope names
+// Ensures new scope format (colon-separated) works and old format would fail.
+// ---------------------------------------------------------------------------
+
+func TestBotAPI_NewScopeFormat(t *testing.T) {
+	env := setupTestEnv(t)
+	bot := createTestBot(t, env.store, env.user.ID, "scope-format-bot")
+
+	// App explicitly using new colon-separated scope names.
+	app := createTestApp(t, env.store, env.user.ID, "New Scope App", "new-scope-app",
+		[]string{"message:write", "message:read", "contact:read", "bot:read"})
+	inst := installTestApp(t, env.store, app.ID, bot.ID)
+
+	endpoints := []struct {
+		method string
+		path   string
+		scope  string
+		body   any
+	}{
+		{"POST", "/bot/v1/message/send", "message:write", map[string]string{"to": "u1", "content": "hi"}},
+		{"GET", "/bot/v1/contact", "contact:read", nil},
+		{"GET", "/bot/v1/info", "bot:read", nil},
+	}
+
+	for _, ep := range endpoints {
+		t.Run(ep.scope+" allows "+ep.path, func(t *testing.T) {
+			resp := doJSON(t, env.ts, ep.method, ep.path, ep.body, withBearer(inst.AppToken))
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusForbidden {
+				body := decodeJSON(t, resp)
+				t.Fatalf("scope %q should grant access to %s, got 403: %v", ep.scope, ep.path, body)
+			}
+		})
+	}
+
+	// App with hypothetical OLD scope names (if someone stored them wrong).
+	appOld := createTestApp(t, env.store, env.user.ID, "Old Scope App", "old-scope-app",
+		[]string{"send_message", "read_contacts", "read_bot"})
+	instOld := installTestApp(t, env.store, appOld.ID, bot.ID)
+
+	for _, ep := range endpoints {
+		t.Run("old scope format denied for "+ep.path, func(t *testing.T) {
+			resp := doJSON(t, env.ts, ep.method, ep.path, ep.body, withBearer(instOld.AppToken))
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusForbidden {
+				t.Errorf("old scope format should be denied for %s, got %d", ep.path, resp.StatusCode)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: App list endpoint returns correct data
+// ---------------------------------------------------------------------------
+
+func TestAppAPI_List(t *testing.T) {
+	env := setupTestEnv(t)
+
+	// Create some apps.
+	createTestApp(t, env.store, env.user.ID, "App A", "app-aaa", []string{"message:write"})
+	createTestApp(t, env.store, env.user.ID, "App B", "app-bbb", []string{"bot:read"})
+
+	t.Run("list own apps", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "GET", "/api/apps", nil, withCookie(env.cookie))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+
+		var apps []map[string]any
+		json.NewDecoder(resp.Body).Decode(&apps)
+		if len(apps) < 2 {
+			t.Errorf("expected at least 2 apps, got %d", len(apps))
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Test: CORS headers
+// ---------------------------------------------------------------------------
+
+func TestCORSHeaders(t *testing.T) {
+	env := setupTestEnv(t)
+
+	req, _ := http.NewRequest("OPTIONS", env.ts.URL+"/api/info", nil)
+	req.Header.Set("Origin", "http://example.com")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 204 {
+		t.Errorf("OPTIONS expected 204, got %d", resp.StatusCode)
+	}
+	if v := resp.Header.Get("Access-Control-Allow-Origin"); v != "http://example.com" {
+		t.Errorf("ACAO = %q, want %q", v, "http://example.com")
+	}
+	if v := resp.Header.Get("Access-Control-Allow-Credentials"); v != "true" {
+		t.Errorf("ACAC = %q, want %q", v, "true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: Bot API unknown endpoint returns 404
+// ---------------------------------------------------------------------------
+
+func TestBotAPI_UnknownEndpoint(t *testing.T) {
+	env := setupTestEnv(t)
+	bot := createTestBot(t, env.store, env.user.ID, "404-bot")
+	app := createTestApp(t, env.store, env.user.ID, "404 App", "four-oh-four", []string{"message:write"})
+	inst := installTestApp(t, env.store, app.ID, bot.ID)
+
+	resp := doJSON(t, env.ts, "GET", "/bot/v1/nonexistent", nil, withBearer(inst.AppToken))
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", resp.StatusCode)
+	}
+}
