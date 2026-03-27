@@ -274,7 +274,16 @@ export function BotDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => marketplaceRef.current?.scrollIntoView({ behavior: "smooth" })}
+                onClick={() => {
+                  const el = marketplaceRef.current;
+                  if (!el) return;
+                  const container = el.closest("main") as HTMLElement | null;
+                  if (container) {
+                    container.scrollTo({ top: el.offsetTop - 32, behavior: "smooth" });
+                  } else {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }}
               >
                 去应用市场看看
               </Button>
