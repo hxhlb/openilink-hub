@@ -42,6 +42,7 @@ type Manager struct {
 	store     store.Store
 	hub       *relay.Hub
 	sinks     []sink.Sink
+	aiSink    *sink.AI            // dedicated AI sink (bot-level, not channel-dependent)
 	storage   *storage.Storage    // optional, for media files
 	baseURL   string              // Hub origin for proxy URLs
 	dlSem     chan struct{}        // semaphore for concurrent media downloads
@@ -50,11 +51,22 @@ type Manager struct {
 }
 
 func NewManager(s store.Store, hub *relay.Hub, sinks []sink.Sink, st *storage.Storage, baseURL string) *Manager {
+	// Extract the AI sink for bot-level AI processing (independent of channels)
+	var aiSink *sink.AI
+	var otherSinks []sink.Sink
+	for _, sk := range sinks {
+		if ai, ok := sk.(*sink.AI); ok {
+			aiSink = ai
+		} else {
+			otherSinks = append(otherSinks, sk)
+		}
+	}
 	return &Manager{
 		instances: make(map[string]*Instance),
 		store:     s,
 		hub:       hub,
-		sinks:     sinks,
+		sinks:     otherSinks,
+		aiSink:    aiSink,
 		storage:   st,
 		baseURL:   baseURL,
 		dlSem:     make(chan struct{}, maxConcurrentDownloads),
@@ -349,8 +361,11 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 	// Show typing indicator while delivering to sinks and apps.
 	typingDone := m.startTyping(inst, msg)
 
-	// Phase 3: Deliver to sinks
+	// Phase 3: Deliver to channel sinks (webhook, websocket)
 	m.deliverToChannels(inst, msg, parsed, matched, msgID, tracer, rootSpan)
+
+	// Phase 3.5: AI completion (bot-level, independent of channels)
+	m.deliverToAI(inst, msg, parsed, msgID, tracer, rootSpan)
 
 	// Phase 4: Deliver to Apps (with trace)
 	m.deliverToApps(inst, msg, parsed, tracer, rootSpan)
@@ -542,6 +557,7 @@ func (m *Manager) recoverUnprocessed(inst *Instance) {
 			"message.id":    msg.ExternalID,
 		})
 		m.deliverToChannels(inst, msg, parsed, matched, msgs[i].ID, tracer, rootSpan)
+		m.deliverToAI(inst, msg, parsed, msgs[i].ID, tracer, rootSpan)
 		m.deliverToApps(inst, msg, parsed, tracer, rootSpan)
 		rootSpan.End()
 		tracer.Flush()
@@ -709,6 +725,30 @@ func (m *Manager) deliverToChannels(inst *Instance, msg provider.InboundMessage,
 		}
 	}
 	wg.Wait()
+}
+
+// deliverToAI runs the AI sink at bot level, independent of channel matching.
+func (m *Manager) deliverToAI(inst *Instance, msg provider.InboundMessage, p parsedMessage, msgID int64, tracer *store.Tracer, rootSpan *store.SpanBuilder) {
+	if m.aiSink == nil || !inst.AIEnabled {
+		return
+	}
+	d := sink.Delivery{
+		BotDBID:   inst.DBID,
+		Provider:  inst.Provider,
+		Message:   msg,
+		SeqID:     msgID,
+		MsgType:   p.msgType,
+		Content:   p.content,
+		AIEnabled: true,
+		Tracer:    tracer,
+		RootSpan:  rootSpan,
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ai sink panic", "bot", inst.DBID, "err", r)
+		}
+	}()
+	m.aiSink.Handle(d)
 }
 
 // matchFilter checks if a message passes the channel's filter rule.
