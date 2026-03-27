@@ -54,7 +54,7 @@ func (m *Manager) deliverToApps(inst *Instance, msg provider.InboundMessage, p p
 
 	event := appdelivery.NewEvent(eventType, map[string]any{
 		"message_id": msg.ExternalID,
-		"sender":     map[string]any{"id": msg.Sender, "name": msg.Sender},
+		"sender":     map[string]any{"id": msg.Sender, "role": "user"},
 		"group":      groupInfo(msg),
 		"content":    content,
 		"msg_type":   p.msgType,
@@ -186,7 +186,7 @@ func (m *Manager) tryDeliverMention(inst *Instance, msg provider.InboundMessage,
 		}
 		event := appdelivery.NewEvent("command", map[string]any{
 			"command": command, "text": cmdArgs,
-			"sender": map[string]any{"id": msg.Sender, "name": msg.Sender},
+			"sender": map[string]any{"id": msg.Sender, "role": "user"},
 			"group": groupInfo(msg), "handle": handle,
 		})
 		event.TraceID = tracer.TraceID()
@@ -205,7 +205,7 @@ func (m *Manager) tryDeliverMention(inst *Instance, msg provider.InboundMessage,
 	}
 
 	event := appdelivery.NewEvent("message.text", map[string]any{
-		"sender": map[string]any{"id": msg.Sender, "name": msg.Sender},
+		"sender": map[string]any{"id": msg.Sender, "role": "user"},
 		"group": groupInfo(msg), "content": text, "handle": handle,
 	})
 	event.TraceID = tracer.TraceID()
@@ -338,7 +338,7 @@ func (m *Manager) tryDeliverCommand(inst *Instance, msg provider.InboundMessage,
 
 	event := appdelivery.NewEvent("command", map[string]any{
 		"command": command, "text": args,
-		"sender": map[string]any{"id": msg.Sender, "name": msg.Sender},
+		"sender": map[string]any{"id": msg.Sender, "role": "user"},
 		"group": groupInfo(msg),
 	})
 	event.TraceID = tracer.TraceID()
@@ -368,7 +368,7 @@ func (m *Manager) tryDeliverCommand(inst *Instance, msg provider.InboundMessage,
 
 // sendAppResult sends a reply from an App via the bot and stores it as outbound.
 func (m *Manager) sendAppResult(inst *Instance, to string, result *appdelivery.DeliveryResult, tracer *store.Tracer, rootSpan *store.SpanBuilder) {
-	if result == nil {
+	if result == nil || result.ReplyAsync {
 		return
 	}
 
@@ -587,7 +587,7 @@ func groupInfo(msg provider.InboundMessage) any {
 	if msg.GroupID == "" {
 		return nil
 	}
-	return map[string]any{"id": msg.GroupID, "name": msg.GroupID}
+	return map[string]any{"id": msg.GroupID}
 }
 
 func detectOutboundContentType(msgType string) string {

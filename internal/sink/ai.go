@@ -294,27 +294,39 @@ func (s *AI) reply(d Delivery) {
 			toolResults = append(toolResults, toolResult)
 		}
 
-		// If all tool results returned images (already sent to user), skip LLM continuation.
-		allImages := true
+		// If all tool results are handled directly (images already sent, or async),
+		// skip LLM continuation — the user will receive results without LLM involvement.
+		skipLLM := true
 		for _, tr := range toolResults {
-			if len(tr.Images) == 0 {
-				allImages = false
+			if len(tr.Images) == 0 && !tr.Async {
+				skipLLM = false
 				break
 			}
 		}
-		if allImages {
+		if skipLLM {
 			s.setTokenUsage(span, d.RootSpan, totalPrompt, totalCompletion, totalTokens, totalCached, totalReasoning)
 			if span != nil {
-				span.SetAttr("reply.content", "(tool returned images)")
+				span.SetAttr("reply.content", "(tool handled directly)")
 				span.End()
 			}
 			s.stopTyping(d, typingTicket)
 			return
 		}
 
+		// Strip images from async/image results before passing to LLM.
+		// We keep all tool results (required by OpenAI tool_calls protocol) but
+		// clear images so they don't get sent as multimodal content to the LLM.
+		var llmResults []ai.ToolCallResult
+		for _, tr := range toolResults {
+			if tr.Async || len(tr.Images) > 0 {
+				tr.Images = nil
+			}
+			llmResults = append(llmResults, tr)
+		}
+
 		// Continue conversation with tool results
 		var nextErr error
-		result, messages, nextErr = ai.ContinueWithToolResults(ctx, cfg, messages, toolResults, tools)
+		result, messages, nextErr = ai.ContinueWithToolResults(ctx, cfg, messages, llmResults, tools)
 		if nextErr != nil {
 			slog.Error("ai continuation failed", "bot", d.BotDBID, "round", round+1, "err", nextErr)
 			if span != nil {
@@ -475,12 +487,19 @@ func (s *AI) executeToolCall(ctx context.Context, d Delivery, tc ai.ToolCallRequ
 		span.SetAttr("app.name", installation.AppName)
 	}
 
-	// Build event (same format as command events)
+	// Build event (same format as command events).
+	// sender is the real user; sender.role indicates AI Agent initiated the call.
+	senderInfo := map[string]any{"id": d.Message.Sender, "role": "agent"}
+	var groupInfo any
+	if d.Message.GroupID != "" {
+		groupInfo = map[string]any{"id": d.Message.GroupID}
+	}
 	event := appdelivery.NewEvent("command", map[string]any{
 		"command": toolName,
 		"text":    "",
 		"args":    args,
-		"sender":  map[string]any{"id": "system", "name": "AI Agent"},
+		"sender":  senderInfo,
+		"group":   groupInfo,
 	})
 	if d.Tracer != nil {
 		event.TraceID = d.Tracer.TraceID()
@@ -499,6 +518,15 @@ func (s *AI) executeToolCall(ctx context.Context, d Delivery, tc ai.ToolCallRequ
 	if span != nil {
 		span.SetAttr("http.status_code", result.StatusCode)
 		span.SetAttr("tool.result", truncateStr(result.Reply, 500))
+	}
+
+	// Handle async replies: app will push the result later via Bot API.
+	if result.ReplyAsync {
+		if span != nil {
+			span.SetAttr("tool.reply_async", true)
+			span.End()
+		}
+		return ai.ToolCallResult{ID: tc.ID, Name: tc.Name, Content: "result pending, will be delivered asynchronously", Async: true}
 	}
 
 	// Handle image replies: send image to user directly.
