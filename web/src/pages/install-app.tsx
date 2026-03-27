@@ -125,7 +125,7 @@ export function InstallAppPage() {
       }
 
       toast({ title: "安装成功" });
-      navigate(`/dashboard/accounts/${botId}/app-installations/${installationId}`);
+      navigate(`/dashboard/accounts/${botId}/apps/${installationId}`);
     } catch (e: any) {
       toast({ variant: "destructive", title: "安装失败", description: e.message });
     } finally {
