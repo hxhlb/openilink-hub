@@ -442,3 +442,8 @@ func (db *DB) SetListing(id, listing string) error {
 	_, err := db.Exec("UPDATE apps SET listing=?, updated_at=unixepoch() WHERE id=?", listing, id)
 	return err
 }
+
+func (db *DB) UpdateAppTools(id string, tools json.RawMessage) error {
+	_, err := db.Exec(`UPDATE apps SET tools = ?, updated_at = unixepoch() WHERE id = ?`, tools, id)
+	return err
+}

@@ -422,3 +422,8 @@ func (db *DB) SetListing(id, listing string) error {
 	_, err := db.Exec("UPDATE apps SET listing=$1, updated_at=NOW() WHERE id=$2", listing, id)
 	return err
 }
+
+func (db *DB) UpdateAppTools(id string, tools json.RawMessage) error {
+	_, err := db.Exec(`UPDATE apps SET tools = $1, updated_at = NOW() WHERE id = $2`, tools, id)
+	return err
+}

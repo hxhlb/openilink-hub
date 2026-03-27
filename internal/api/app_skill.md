@@ -430,6 +430,24 @@ Response:
 }
 ```
 
+### Update Tools
+
+```
+PUT /bot/v1/app/tools
+Authorization: Bearer {app_token}
+```
+
+Dynamically update the app's tools/commands at runtime. Requires `tools:write` scope. Only works for local apps (not marketplace or builtin).
+
+| Field | Required | Description |
+|---|---|---|
+| `tools` | Yes | JSON array of tool definitions |
+
+Response:
+```json
+{"ok": true, "tool_count": 5}
+```
+
 ### WebSocket (Per-Installation)
 
 ```
@@ -470,6 +488,7 @@ Single connection receives events for ALL installations of this app. See **WebSo
 | `message:read` | Receive message events |
 | `contact:read` | Read the Bot's contact list |
 | `bot:read` | Read Bot info (name, status, etc.) |
+| `tools:write` | Dynamically update app tools/commands |
 
 Declare only the scopes your App needs. Users see the requested scopes when installing.
 
@@ -612,6 +631,7 @@ PUT /api/admin/config/registry
 | POST | `/bot/v1/message/send` | `message:write` | Send message |
 | GET | `/bot/v1/contact` | `contact:read` | List contacts |
 | GET | `/bot/v1/info` | `bot:read` | Get bot info |
+| PUT | `/bot/v1/app/tools` | `tools:write` | Update app tools dynamically |
 | GET | `/bot/v1/ws` | - | WebSocket (per-installation) |
 | GET | `/bot/v1/app/ws` | - | WebSocket (per-app, all installations) |
 

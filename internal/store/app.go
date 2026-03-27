@@ -95,4 +95,5 @@ type AppStore interface {
 	ReviewListing(id string, approve bool, reason string) error
 	WithdrawListing(id string) error
 	SetListing(id, listing string) error
+	UpdateAppTools(id string, tools json.RawMessage) error
 }

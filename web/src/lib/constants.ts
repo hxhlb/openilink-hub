@@ -3,6 +3,7 @@ export const SCOPE_DESCRIPTIONS: Record<string, string> = {
   "message:read": "接收 Bot 的微信消息事件",
   "contact:read": "读取 Bot 的联系人列表",
   "bot:read": "读取 Bot 的状态和基本信息",
+  "tools:write": "动态更新命令/工具",
 };
 
 export const SCOPES = [
@@ -10,6 +11,7 @@ export const SCOPES = [
   { key: "message:read", label: "接收消息", description: "接收 Bot 的微信消息事件", category: "read" as const },
   { key: "contact:read", label: "读取联系人", description: "读取 Bot 的联系人列表", category: "read" as const },
   { key: "bot:read", label: "读取 Bot 信息", description: "读取 Bot 的状态和基本信息", category: "read" as const },
+  { key: "tools:write", label: "动态更新工具", description: "动态更新命令/工具", category: "write" as const },
 ];
 
 export const EVENT_TYPES = [

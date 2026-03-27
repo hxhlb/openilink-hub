@@ -1479,6 +1479,130 @@ func containsSubstring(s, sub string) bool {
 	return len(s) >= len(sub) && (s == sub || len(s) > 0 && contains(s, sub))
 }
 
+// ---------------------------------------------------------------------------
+// Test: Bot API UpdateTools
+// ---------------------------------------------------------------------------
+
+func TestBotAPI_UpdateTools(t *testing.T) {
+	env := setupTestEnv(t)
+
+	// Create app with tools:write scope
+	app := createTestApp(t, env.store, env.user.ID, "Dynamic Tools App", "dynamic-tools-app", []string{"tools:write"})
+
+	// Create bot and install
+	bot := createTestBot(t, env.store, env.user.ID, "tools-bot")
+	inst := installTestApp(t, env.store, app.ID, bot.ID)
+
+	t.Run("update tools succeeds with scope", func(t *testing.T) {
+		newTools := []map[string]any{
+			{"name": "hn", "description": "HackerNews top", "command": "hn"},
+			{"name": "weather", "description": "Check weather", "command": "weather"},
+		}
+		toolsJSON, _ := json.Marshal(newTools)
+
+		resp := doJSON(t, env.ts, "PUT", "/bot/v1/app/tools",
+			map[string]any{"tools": json.RawMessage(toolsJSON)},
+			withBearer(inst.AppToken))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			body := decodeJSON(t, resp)
+			t.Fatalf("expected 200, got %d: %v", resp.StatusCode, body)
+		}
+		body := decodeJSON(t, resp)
+		if body["tool_count"] != float64(2) {
+			t.Errorf("tool_count = %v, want 2", body["tool_count"])
+		}
+
+		// Verify tools were actually updated
+		updated, err := env.store.GetApp(app.ID)
+		if err != nil {
+			t.Fatalf("GetApp: %v", err)
+		}
+		var tools []map[string]any
+		json.Unmarshal(updated.Tools, &tools)
+		if len(tools) != 2 {
+			t.Errorf("stored tools count = %d, want 2", len(tools))
+		}
+	})
+
+	t.Run("update tools fails without scope", func(t *testing.T) {
+		// Create app WITHOUT tools:write
+		app2 := createTestApp(t, env.store, env.user.ID, "No Scope App", "no-scope-app", []string{"message:write"})
+		inst2 := installTestApp(t, env.store, app2.ID, bot.ID)
+
+		resp := doJSON(t, env.ts, "PUT", "/bot/v1/app/tools",
+			map[string]any{"tools": json.RawMessage(`[{"name":"test"}]`)},
+			withBearer(inst2.AppToken))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 403 {
+			t.Fatalf("expected 403, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("update tools fails for marketplace app", func(t *testing.T) {
+		// Create marketplace app (has registry set)
+		mktScopes, _ := json.Marshal([]string{"tools:write"})
+		mktApp, err := env.store.CreateApp(&store.App{
+			OwnerID:  env.user.ID,
+			Name:     "Marketplace App",
+			Slug:     "mkt-tools-app",
+			Scopes:   mktScopes,
+			Registry: "https://some-registry.com",
+		})
+		if err != nil {
+			t.Fatalf("CreateApp: %v", err)
+		}
+		mktInst := installTestApp(t, env.store, mktApp.ID, bot.ID)
+
+		resp := doJSON(t, env.ts, "PUT", "/bot/v1/app/tools",
+			map[string]any{"tools": json.RawMessage(`[{"name":"test"}]`)},
+			withBearer(mktInst.AppToken))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 403 {
+			t.Fatalf("expected 403, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("update tools fails for builtin app", func(t *testing.T) {
+		// Create builtin app
+		biScopes, _ := json.Marshal([]string{"tools:write"})
+		biApp, err := env.store.CreateApp(&store.App{
+			OwnerID:  env.user.ID,
+			Name:     "Builtin App",
+			Slug:     "bi-tools-app",
+			Scopes:   biScopes,
+			Registry: "builtin",
+		})
+		if err != nil {
+			t.Fatalf("CreateApp: %v", err)
+		}
+		biInst := installTestApp(t, env.store, biApp.ID, bot.ID)
+
+		resp := doJSON(t, env.ts, "PUT", "/bot/v1/app/tools",
+			map[string]any{"tools": json.RawMessage(`[{"name":"test"}]`)},
+			withBearer(biInst.AppToken))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 403 {
+			t.Fatalf("expected 403, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("invalid tools format rejected", func(t *testing.T) {
+		resp := doJSON(t, env.ts, "PUT", "/bot/v1/app/tools",
+			map[string]any{"tools": "not an array"},
+			withBearer(inst.AppToken))
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 400 {
+			t.Fatalf("expected 400, got %d", resp.StatusCode)
+		}
+	})
+}
+
 func contains(s, sub string) bool {
 	for i := 0; i <= len(s)-len(sub); i++ {
 		if s[i:i+len(sub)] == sub {

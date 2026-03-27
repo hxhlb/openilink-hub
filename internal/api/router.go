@@ -237,6 +237,7 @@ func (s *Server) Handler() http.Handler {
 	botAPI.HandleFunc("POST /bot/v1/messages/send", s.handleBotAPISend)
 	botAPI.HandleFunc("GET /bot/v1/contacts", s.handleBotAPIContacts)
 	botAPI.HandleFunc("GET /bot/v1/bot", s.handleBotAPIBotInfo)
+	botAPI.HandleFunc("PUT /bot/v1/app/tools", s.handleBotAPIUpdateTools)
 	botAPI.HandleFunc("/bot/", s.handleBotAPINotFound)
 	mux.Handle("/bot/", s.appTokenAuth(botAPI))
 

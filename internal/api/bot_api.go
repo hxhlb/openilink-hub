@@ -367,6 +367,61 @@ func base64Decode(s string) ([]byte, string, error) {
 	return data, mime, err
 }
 
+// handleBotAPIUpdateTools handles PUT /bot/v1/app/tools.
+// App dynamically updates its own tools. Requires tools:write scope.
+// Only works for local apps (registry="").
+func (s *Server) handleBotAPIUpdateTools(w http.ResponseWriter, r *http.Request) {
+	inst := installationFromContext(r.Context())
+	if inst == nil {
+		botAPIError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Check scope
+	if !s.requireScope(inst, "tools:write") {
+		botAPIError(w, "missing scope: tools:write", http.StatusForbidden)
+		return
+	}
+
+	// Get app and verify it's a local app (not marketplace/builtin)
+	app, err := s.Store.GetApp(inst.AppID)
+	if err != nil {
+		botAPIError(w, "app not found", http.StatusNotFound)
+		return
+	}
+	if app.Registry != "" {
+		botAPIError(w, "marketplace and builtin apps cannot be modified via API", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Tools json.RawMessage `json:"tools"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Tools == nil {
+		botAPIError(w, "tools required", http.StatusBadRequest)
+		return
+	}
+
+	// Validate tools is a JSON array
+	var toolsCheck []any
+	if err := json.Unmarshal(req.Tools, &toolsCheck); err != nil {
+		botAPIError(w, "tools must be a JSON array", http.StatusBadRequest)
+		return
+	}
+
+	// Update the app's tools
+	if err := s.Store.UpdateAppTools(app.ID, req.Tools); err != nil {
+		botAPIError(w, "update failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Log the update
+	slog.Info("app tools updated via bot API", "app_id", app.ID, "app_slug", app.Slug, "tool_count", len(toolsCheck))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"ok": true, "tool_count": len(toolsCheck)})
+}
+
 func downloadURL(ctx context.Context, url string) ([]byte, string, error) {
 	dlCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
