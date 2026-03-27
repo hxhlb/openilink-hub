@@ -207,6 +207,24 @@ func (s *AI) reply(d Delivery) {
 			toolResults = append(toolResults, toolResult)
 		}
 
+		// If all tool results returned images (already sent to user), skip LLM continuation.
+		allImages := true
+		for _, tr := range toolResults {
+			if len(tr.Images) == 0 {
+				allImages = false
+				break
+			}
+		}
+		if allImages {
+			s.setTokenUsage(span, d.RootSpan, totalPrompt, totalCompletion, totalTokens, totalCached, totalReasoning)
+			if span != nil {
+				span.SetAttr("reply.content", "(tool returned images)")
+				span.End()
+			}
+			s.stopTyping(d, typingTicket)
+			return
+		}
+
 		// Continue conversation with tool results
 		var nextErr error
 		result, messages, nextErr = ai.ContinueWithToolResults(ctx, cfg, messages, toolResults, tools)
@@ -230,24 +248,7 @@ func (s *AI) reply(d Delivery) {
 		}
 	}
 
-	// Set token usage attributes on both the ai_completion span and the root span.
-	// The root span is used by the traces list and trace header summary views.
-	if totalTokens > 0 {
-		for _, s := range []*store.SpanBuilder{span, d.RootSpan} {
-			if s == nil {
-				continue
-			}
-			s.SetAttr("ai.tokens.prompt", totalPrompt)
-			s.SetAttr("ai.tokens.completion", totalCompletion)
-			s.SetAttr("ai.tokens.total", totalTokens)
-			if totalCached > 0 {
-				s.SetAttr("ai.tokens.cached", totalCached)
-			}
-			if totalReasoning > 0 {
-				s.SetAttr("ai.tokens.reasoning", totalReasoning)
-			}
-		}
-	}
+	s.setTokenUsage(span, d.RootSpan, totalPrompt, totalCompletion, totalTokens, totalCached, totalReasoning)
 
 	s.stopTyping(d, typingTicket)
 
@@ -413,7 +414,8 @@ func (s *AI) executeToolCall(ctx context.Context, d Delivery, tc ai.ToolCallRequ
 		span.SetAttr("tool.result", truncateStr(result.Reply, 500))
 	}
 
-	// Handle image replies: send image to user AND pass to LLM as multimodal content
+	// Handle image replies: send image to user directly.
+	// When all tool results in a round contain images, the caller skips LLM continuation.
 	if result.ReplyType == "image" {
 		images := s.resolveToolMedia(ctx, d.BotDBID, result)
 		// Only include images that were actually delivered to the user.
@@ -612,6 +614,26 @@ var safeHTTPClient = &http.Client{
 			return d.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
 		},
 	},
+}
+
+func (s *AI) setTokenUsage(span, rootSpan *store.SpanBuilder, prompt, completion, total, cached, reasoning int) {
+	if total <= 0 {
+		return
+	}
+	for _, sp := range []*store.SpanBuilder{span, rootSpan} {
+		if sp == nil {
+			continue
+		}
+		sp.SetAttr("ai.tokens.prompt", prompt)
+		sp.SetAttr("ai.tokens.completion", completion)
+		sp.SetAttr("ai.tokens.total", total)
+		if cached > 0 {
+			sp.SetAttr("ai.tokens.cached", cached)
+		}
+		if reasoning > 0 {
+			sp.SetAttr("ai.tokens.reasoning", reasoning)
+		}
+	}
 }
 
 func truncateStr(s string, max int) string {
