@@ -14,6 +14,28 @@ import (
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$`)
 
+// nameToSlug converts an app name to a URL-friendly slug.
+// Non-ASCII and non-alphanumeric characters are replaced with hyphens.
+func nameToSlug(name string) string {
+	s := strings.ToLower(strings.TrimSpace(name))
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	// Collapse consecutive hyphens and trim
+	slug := regexp.MustCompile(`-+`).ReplaceAllString(b.String(), "-")
+	slug = strings.Trim(slug, "-")
+	if len(slug) > 40 {
+		slug = slug[:40]
+		slug = strings.TrimRight(slug, "-")
+	}
+	return slug
+}
+
 func buildListingSnapshot(app *store.App) string {
 	snap := map[string]any{
 		"tools":         app.Tools,
@@ -57,10 +79,13 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate slug
+	// Validate or generate slug
 	slug := strings.ToLower(strings.TrimSpace(req.Slug))
+	if slug == "" {
+		slug = nameToSlug(req.Name)
+	}
 	if !slugRe.MatchString(slug) {
-		jsonError(w, "slug must be 3-40 chars, lowercase alphanumeric and hyphens", http.StatusBadRequest)
+		jsonError(w, "slug must be 3-40 chars, lowercase alphanumeric and hyphens, e.g. my-app", http.StatusBadRequest)
 		return
 	}
 

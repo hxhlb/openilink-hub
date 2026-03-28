@@ -216,6 +216,7 @@ func (db *DB) GetBotStats(userID string) (*store.BotStats, error) {
 		return nil, err
 	}
 	db.QueryRow(`SELECT COUNT(*) FROM channels WHERE bot_id IN (SELECT id FROM bots WHERE user_id = ?)`, userID).Scan(&s.TotalChannels)
+	db.QueryRow(`SELECT COUNT(*) FROM app_installations WHERE enabled = 1 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?)`, userID).Scan(&s.TotalInstallations)
 	return s, nil
 }
 

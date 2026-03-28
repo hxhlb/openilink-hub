@@ -26,11 +26,12 @@ type Bot struct {
 }
 
 type BotStats struct {
-	TotalBots     int   `json:"total_bots"`
-	OnlineBots    int   `json:"online_bots"`
-	TotalChannels int   `json:"total_channels"`
-	TotalMessages int64 `json:"total_messages"`
-	ConnectedWS   int   `json:"connected_ws"`
+	TotalBots          int   `json:"total_bots"`
+	OnlineBots         int   `json:"online_bots"`
+	TotalChannels      int   `json:"total_channels"`
+	TotalMessages      int64 `json:"total_messages"`
+	TotalInstallations int   `json:"total_installations"`
+	ConnectedWS        int   `json:"connected_ws"`
 }
 
 type AdminStats struct {
