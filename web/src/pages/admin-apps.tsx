@@ -5,12 +5,15 @@ import { Badge } from "../components/ui/badge";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { api } from "../lib/api";
 import { Blocks, Trash2, X, Pencil } from "lucide-react";
+import { useConfirm, usePrompt } from "@/components/ui/confirm-dialog";
 
 export function AdminAppsTab() {
   const [apps, setApps] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { prompt, PromptDialog } = usePrompt();
 
   async function load() {
     try {
@@ -38,7 +41,13 @@ export function AdminAppsTab() {
   }
 
   async function handleDelete(app: any) {
-    if (!confirm(`删除 App "${app.name}"？此操作不可恢复。`)) return;
+    const ok = await confirm({
+      title: "删除确认",
+      description: `删除 App "${app.name}"？此操作不可恢复。`,
+      confirmText: "删除",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       await api.deleteApp(app.id);
       setSelected(null);
@@ -58,7 +67,7 @@ export function AdminAppsTab() {
   }
 
   async function handleReject(app: any) {
-    const reason = prompt("拒绝原因：");
+    const reason = await prompt({ title: "拒绝 App", description: "请输入拒绝原因", placeholder: "拒绝原因" });
     if (!reason) return;
     try {
       await api.reviewListing(app.id, false, reason);
@@ -70,6 +79,8 @@ export function AdminAppsTab() {
 
   return (
     <div className="space-y-3">
+      {ConfirmDialog}
+      {PromptDialog}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
       <div className="space-y-1">
         {apps.map((app) => (
