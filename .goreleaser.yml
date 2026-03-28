@@ -61,17 +61,25 @@ release:
 dockers:
   - image_templates:
       - "ghcr.io/openilink/openilink-hub:{{ .Version }}-amd64"
+      - "docker.io/openilink/openilink-hub:{{ .Version }}-amd64"
     use: buildx
     dockerfile: Dockerfile.release
     build_flag_templates:
       - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.source=https://github.com/openilink/openilink-hub"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
     ids: [linux-amd64]
   - image_templates:
       - "ghcr.io/openilink/openilink-hub:{{ .Version }}-arm64"
+      - "docker.io/openilink/openilink-hub:{{ .Version }}-arm64"
     use: buildx
     dockerfile: Dockerfile.release
     build_flag_templates:
       - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.source=https://github.com/openilink/openilink-hub"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
     ids: [linux-arm64]
     goarch: arm64
 docker_manifests:
@@ -83,3 +91,11 @@ docker_manifests:
     image_templates:
       - "ghcr.io/openilink/openilink-hub:{{ .Version }}-amd64"
       - "ghcr.io/openilink/openilink-hub:{{ .Version }}-arm64"
+  - name_template: "docker.io/openilink/openilink-hub:{{ .Version }}"
+    image_templates:
+      - "docker.io/openilink/openilink-hub:{{ .Version }}-amd64"
+      - "docker.io/openilink/openilink-hub:{{ .Version }}-arm64"
+  - name_template: "docker.io/openilink/openilink-hub:latest"
+    image_templates:
+      - "docker.io/openilink/openilink-hub:{{ .Version }}-amd64"
+      - "docker.io/openilink/openilink-hub:{{ .Version }}-arm64"
