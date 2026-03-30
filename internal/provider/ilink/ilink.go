@@ -212,18 +212,32 @@ func (p *Provider) GetConfig(ctx context.Context, recipient, contextToken string
 	}, nil
 }
 
-func (p *Provider) DownloadMedia(ctx context.Context, encryptQueryParam, aesKey string) ([]byte, error) {
-	return p.client.DownloadFile(ctx, encryptQueryParam, aesKey)
+func (p *Provider) DownloadMedia(ctx context.Context, media *provider.Media) ([]byte, error) {
+	if media == nil {
+		return nil, fmt.Errorf("media is nil")
+	}
+	return p.client.DownloadMedia(ctx, toCDNMedia(media))
 }
 
-func (p *Provider) DownloadVoice(ctx context.Context, encryptQueryParam, aesKey string, sampleRate int) ([]byte, error) {
+func (p *Provider) DownloadVoice(ctx context.Context, media *provider.Media, sampleRate int) ([]byte, error) {
+	if media == nil {
+		return nil, fmt.Errorf("media is nil")
+	}
 	return p.client.DownloadVoice(ctx, &ilink.VoiceItem{
-		Media: &ilink.CDNMedia{
-			EncryptQueryParam: encryptQueryParam,
-			AESKey:            aesKey,
-		},
+		Media:      toCDNMedia(media),
 		SampleRate: sampleRate,
 	})
+}
+
+func toCDNMedia(m *provider.Media) *ilink.CDNMedia {
+	if m == nil {
+		return nil
+	}
+	return &ilink.CDNMedia{
+		EncryptQueryParam: m.EncryptQueryParam,
+		AESKey:            m.AESKey,
+		FullURL:           m.URL,
+	}
 }
 
 func decodeSILK(data []byte, sampleRate int) ([]byte, error) {
@@ -362,7 +376,7 @@ func (p *Provider) sendVoice(ctx context.Context, recipient, contextToken string
 						AESKey:            base64.StdEncoding.EncodeToString([]byte(uploaded.AESKey)),
 						EncryptType:       ilink.EncryptAES128ECB,
 					},
-					EncodeType:    4,
+					EncodeType:    ilink.VoiceFormatSILK,
 					SampleRate:    wav.SampleRate,
 					BitsPerSample: 16,
 					PlayTime:      playTime,
@@ -423,6 +437,7 @@ func convertItem(item ilink.MessageItem) *provider.MessageItem {
 				if item.ImageItem.ThumbMedia != nil {
 					mi.Media.ThumbEQP = item.ImageItem.ThumbMedia.EncryptQueryParam
 					mi.Media.ThumbAESKey = item.ImageItem.ThumbMedia.AESKey
+					mi.Media.ThumbURL = item.ImageItem.ThumbMedia.FullURL
 				}
 			}
 		}
@@ -456,6 +471,7 @@ func convertItem(item ilink.MessageItem) *provider.MessageItem {
 				if item.VideoItem.ThumbMedia != nil {
 					mi.Media.ThumbEQP = item.VideoItem.ThumbMedia.EncryptQueryParam
 					mi.Media.ThumbAESKey = item.VideoItem.ThumbMedia.AESKey
+					mi.Media.ThumbURL = item.VideoItem.ThumbMedia.FullURL
 				}
 			}
 		}
@@ -485,6 +501,7 @@ func convertCDNMedia(m *ilink.CDNMedia, mediaType string) *provider.Media {
 	return &provider.Media{
 		EncryptQueryParam: m.EncryptQueryParam,
 		AESKey:            m.AESKey,
+		URL:               m.FullURL,
 		MediaType:         mediaType,
 	}
 }
