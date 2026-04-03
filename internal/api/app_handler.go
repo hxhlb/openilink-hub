@@ -389,7 +389,7 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		if req.Scopes != nil && !jsonRawEqual(req.Scopes, app.Scopes) {
 			coreChanged = true
 		}
-		if req.ConfigSchema != nil && *req.ConfigSchema != app.ConfigSchema {
+		if req.ConfigSchema != nil && !jsonRawEqual(json.RawMessage(*req.ConfigSchema), json.RawMessage(app.ConfigSchema)) {
 			coreChanged = true
 		}
 		if req.Version != nil && *req.Version != app.Version {

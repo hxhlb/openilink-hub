@@ -2014,7 +2014,7 @@ func TestUpdateListedAppWithEquivalentJSONDoesNotUnlist(t *testing.T) {
 		"tools":         []map[string]any{{"description": "Tool", "name": "tool"}},
 		"events":        []string{"message"},
 		"scopes":        []string{"message:read"},
-		"config_schema": `{"type":"object"}`,
+		"config_schema": "{\n  \"type\": \"object\"\n}",
 		"version":       "1.0.0",
 	}, withCookie(env.cookie))
 	defer resp.Body.Close()
