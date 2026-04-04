@@ -142,9 +142,9 @@ export function TimelineView({ spans, selectedSpanId, onSelectSpan }: TimelineVi
               >
                 <div
                   className={`absolute h-5 rounded-sm flex items-center px-1.5 ${
-                    kindBgLight[span.kind] || "bg-gray-500/15"
+                    span.status_code === "error" ? "bg-destructive/15" : (kindBgLight[span.kind] || "bg-gray-500/15")
                   } border ${
-                    isSelected ? "border-primary/50" : "border-transparent"
+                    span.status_code === "error" ? "border-destructive/50" : isSelected ? "border-primary/50" : "border-transparent"
                   }`}
                   style={{
                     left: `${barLeft}%`,
@@ -154,7 +154,7 @@ export function TimelineView({ spans, selectedSpanId, onSelectSpan }: TimelineVi
                 >
                   <div
                     className={`h-full rounded-sm absolute inset-y-0 left-0 ${
-                      kindColors[span.kind] || "bg-gray-500"
+                      span.status_code === "error" ? "bg-destructive" : (kindColors[span.kind] || "bg-gray-500")
                     } opacity-30`}
                     style={{ width: "100%" }}
                   />

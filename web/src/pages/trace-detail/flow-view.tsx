@@ -69,7 +69,9 @@ function SpanNodeComponent({ data }: { data: any }) {
       className={`rounded-lg border-2 px-3 py-2 bg-card shadow-sm transition-colors cursor-pointer w-[220px] ${
         isSelected
           ? "border-primary ring-2 ring-primary/20"
-          : kindBorderColors[span.kind] || "border-border"
+          : span.status_code === "error"
+            ? "border-destructive ring-1 ring-destructive/20"
+            : kindBorderColors[span.kind] || "border-border"
       }`}
     >
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground !w-2 !h-2" />
