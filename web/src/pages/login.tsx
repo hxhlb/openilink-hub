@@ -44,6 +44,8 @@ export function LoginPage() {
   const [qrUrl, setQrUrl] = useState("");
   const [scanStatus, setScanStatus] = useState<"idle" | "loading" | "wait" | "scanned" | "error">("idle");
   const [scanMessage, setScanMessage] = useState("");
+  const scanWsRef = useRef<WebSocket | null>(null);
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Password login state
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -66,9 +68,13 @@ export function LoginPage() {
     }
   }, [infoData]);
 
-  // Auto-start scan login on mount
+  // Auto-start scan login on mount; cleanup WS/timer on unmount
   useEffect(() => {
     startScanLogin();
+    return () => {
+      if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+      if (scanWsRef.current) scanWsRef.current.close();
+    };
   }, []);
 
   async function startScanLogin() {
@@ -88,43 +94,59 @@ export function LoginPage() {
       setScanStatus("wait");
       setScanMessage("请使用微信扫描二维码");
 
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(`${protocol}//${window.location.host}/api/auth/scan/status/${data.session_id}`);
-      ws.onmessage = (e) => {
-        const d = JSON.parse(e.data);
-        if (d.event === "status") {
-          if (d.status === "wait") {
-            // keep waiting
-          } else if (d.status === "scanned") {
-            setScanStatus("scanned");
-            setScanMessage("已扫码，请在手机上确认...");
-          } else if (d.status === "refreshed") {
-            setQrUrl(d.qr_url);
-            setScanStatus("wait");
-            setScanMessage("二维码已刷新，请重新扫描");
-          } else if (d.status === "connected") {
-            if (d.session_token) {
-              document.cookie = `session=${d.session_token}; path=/; max-age=${7*24*3600}; samesite=lax`;
-            }
-            ws.close();
-            navigate(d.is_new && d.bot_id ? `/dashboard/onboarding?bot_id=${d.bot_id}` : "/dashboard");
-          }
-        } else if (d.event === "error") {
-          setScanMessage(d.message || "扫码登录失败");
-          setScanStatus("error");
-          ws.close();
-        }
-      };
-      ws.onerror = () => {
-        setScanStatus("error");
-        setScanMessage("连接中断，请刷新重试");
-        ws.close();
-      };
-      ws.onclose = () => {};
+      connectScanWS(data.session_id);
     } catch (err: any) {
       setScanStatus("error");
       setScanMessage(err.message || "初始化失败");
     }
+  }
+
+  function connectScanWS(sessionID: string, retries = 0) {
+    const MAX_RETRIES = 5;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${protocol}//${window.location.host}/api/auth/scan/status/${sessionID}`);
+    scanWsRef.current = ws;
+    let settled = false;
+
+    ws.onmessage = (e) => {
+      const d = JSON.parse(e.data);
+      if (d.event === "status") {
+        if (d.status === "wait") {
+          // keep waiting
+        } else if (d.status === "scanned") {
+          setScanStatus("scanned");
+          setScanMessage("已扫码，请在手机上确认...");
+        } else if (d.status === "refreshed") {
+          setQrUrl(d.qr_url);
+          setScanStatus("wait");
+          setScanMessage("二维码已刷新，请重新扫描");
+        } else if (d.status === "connected") {
+          settled = true;
+          if (d.session_token) {
+            document.cookie = `session=${d.session_token}; path=/; max-age=${7*24*3600}; samesite=lax`;
+          }
+          ws.close();
+          navigate(d.is_new && d.bot_id ? `/dashboard/onboarding?bot_id=${d.bot_id}` : "/dashboard");
+        }
+      } else if (d.event === "error") {
+        settled = true;
+        setScanMessage(d.message || "扫码登录失败");
+        setScanStatus("error");
+        ws.close();
+      }
+    };
+    ws.onerror = () => { ws.close(); };
+    ws.onclose = () => {
+      if (settled) return;
+      if (retries < MAX_RETRIES) {
+        const delay = Math.min(1000 * 2 ** retries, 8000);
+        setScanMessage("连接中断，正在重连...");
+        scanTimerRef.current = setTimeout(() => connectScanWS(sessionID, retries + 1), delay);
+      } else {
+        setScanStatus("error");
+        setScanMessage("连接中断，请刷新重试");
+      }
+    };
   }
 
   // Password login

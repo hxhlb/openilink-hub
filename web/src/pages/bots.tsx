@@ -54,6 +54,16 @@ export function BotsPage() {
   const [qrUrl, setQrUrl] = useState("");
   const [bindStatus, setBindStatus] = useState("");
   const navigate = useNavigate();
+  const bindWsRef = useRef<WebSocket | null>(null);
+  const bindTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup WS/timer when dialog closes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (bindTimerRef.current) clearTimeout(bindTimerRef.current);
+      if (bindWsRef.current) bindWsRef.current.close();
+    };
+  }, []);
 
   async function startBind() {
     setBinding(true);
@@ -62,37 +72,53 @@ export function BotsPage() {
       const { session_id, qr_url } = await api.bindStart();
       setQrUrl(qr_url);
       setBindStatus("请使用手机微信扫描上方二维码");
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(
-        `${protocol}//${window.location.host}/api/bots/bind/status/${session_id}`,
-      );
-      ws.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.event === "status") {
-          if (data.status === "scanned") setBindStatus("已扫码，请在手机上点击确认...");
-          if (data.status === "refreshed") {
-            setQrUrl(data.qr_url);
-            setBindStatus("二维码已刷新");
-          }
-          if (data.status === "connected") {
-            ws.close();
-            setBinding(false);
-            navigate(
-              data.is_new && data.bot_id
-                ? `/dashboard/onboarding?bot_id=${data.bot_id}`
-                : "/dashboard/accounts",
-            );
-          }
-        }
-      };
-      ws.onerror = () => {
-        setBindStatus("同步中断，请重试");
-        ws.close();
-      };
-      ws.onclose = () => {};
+      connectBindWS(session_id);
     } catch (err: any) {
       setBindStatus("初始化失败: " + err.message);
     }
+  }
+
+  function connectBindWS(sessionID: string, retries = 0) {
+    const MAX_RETRIES = 5;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(
+      `${protocol}//${window.location.host}/api/bots/bind/status/${sessionID}`,
+    );
+    bindWsRef.current = ws;
+    let settled = false;
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.event === "status") {
+        if (data.status === "scanned") setBindStatus("已扫码，请在手机上点击确认...");
+        if (data.status === "refreshed") {
+          setQrUrl(data.qr_url);
+          setBindStatus("二维码已刷新");
+        }
+        if (data.status === "connected") {
+          settled = true;
+          ws.close();
+          setBinding(false);
+          navigate(
+            data.is_new && data.bot_id
+              ? `/dashboard/onboarding?bot_id=${data.bot_id}`
+              : "/dashboard/accounts",
+          );
+        }
+      }
+    };
+    ws.onerror = () => { ws.close(); };
+    ws.onclose = () => {
+      if (settled) return;
+      if (retries < MAX_RETRIES) {
+        const delay = Math.min(1000 * 2 ** retries, 8000);
+        setBindStatus("连接中断，正在重连...");
+        bindTimerRef.current = setTimeout(() => connectBindWS(sessionID, retries + 1), delay);
+      } else {
+        setBindStatus("连接中断，请重试");
+        setBinding(false);
+      }
+    };
   }
 
   return (
